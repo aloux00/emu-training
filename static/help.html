@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>使用帮助 · 教学排课管理系统</title>
+<style>
+:root{--pri:#185FA5;--pri-d:#124a82;--txt:#1f2329;--sub:#475569;--mut:#94a3b8;--bd:#dfe6ef;--bg:#f4f7fb;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Microsoft YaHei","PingFang SC","Segoe UI",sans-serif;color:var(--txt);background:var(--bg);font-size:14px;line-height:1.7;}
+.wrap{max-width:960px;margin:0 auto;padding:20px 18px 60px;}
+/* 头部 */
+.hero{background:linear-gradient(135deg,#185FA5,#2b7cc9);color:#fff;border-radius:14px;padding:26px 30px;margin-bottom:18px;}
+.hero h1{font-size:22px;letter-spacing:1px;}
+.hero p{margin-top:6px;font-size:13px;opacity:.92;}
+.hero .acts{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;}
+.hero button{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer;}
+.hero button:hover{background:rgba(255,255,255,.28);}
+/* 卡片 */
+.card{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:20px 24px;margin-bottom:16px;box-shadow:0 2px 8px rgba(15,23,42,.05);}
+.card>h2{font-size:16px;color:var(--pri);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.card>h2 .no{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--pri);color:#fff;font-size:13px;flex:none;}
+.card h3{font-size:14px;margin:14px 0 8px;color:#334155;}
+.card p{color:var(--sub);font-size:13.5px;}
+.card ul,.card ol{padding-left:20px;color:var(--sub);font-size:13.5px;}
+.card li{margin-bottom:5px;}
+.step{display:flex;gap:10px;margin-bottom:9px;}
+.step b{flex:none;width:22px;height:22px;border-radius:50%;background:#e8f1fb;color:var(--pri);display:inline-flex;align-items:center;justify-content:center;font-size:12px;margin-top:2px;}
+/* 表格 */
+table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0 4px;}
+th,td{border:1px solid var(--bd);padding:7px 10px;text-align:left;vertical-align:top;}
+th{background:#f1f6fc;color:#33455e;font-weight:600;white-space:nowrap;}
+td code{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px;padding:1px 7px;font-family:Consolas,Menlo,monospace;font-size:12.5px;color:#0f4c81;white-space:nowrap;}
+/* 提示块 */
+.tip{background:#f0f9f4;border:1px solid #cdeadb;border-radius:8px;padding:9px 13px;font-size:13px;color:#14624a;margin:9px 0;}
+.warn{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:9px 13px;font-size:13px;color:#92400e;margin:9px 0;}
+kbd{background:#eef2f7;border:1px solid #cbd5e1;border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:12px;font-family:Consolas,monospace;}
+.tagline{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.tagline span{background:#eef4fb;color:var(--pri);border:1px solid #d3e3f5;border-radius:20px;padding:3px 13px;font-size:12.5px;}
+footer{text-align:center;color:var(--mut);font-size:12px;margin-top:20px;}
+/* 打印 */
+@media print{
+  body{background:#fff;}
+  .wrap{max-width:none;padding:0;}
+  .hero{border-radius:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .card{box-shadow:none;break-inside:avoid;page-break-inside:avoid;}
+  .hero button{display:none;}
+}
+@media (max-width:640px){ .card{padding:14px;} .hero{padding:20px;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <h1>教学排课管理系统 · 使用帮助</h1>
+    <p>适用对象：科室管理员 / 教学秘书 / 全体带教老师 / 研究生汇报人 &nbsp;·&nbsp; 更新日期：2026-11-10</p>
+    <div class="acts">
+      <button onclick="window.print()">打印 / 另存为 PDF</button>
+      <button onclick="location.href='/'">进入系统</button>
+    </div>
+    <div class="tagline">
+      <span>网页排课</span><span>Excel 导入导出</span><span>钉钉机器人填报</span><span>钉钉日程 / 待办</span><span>研究生汇报题目</span>
+    </div>
+  </div>
+
+  <!-- 1 身份 -->
+  <div class="card">
+    <h2><span class="no">1</span>三种使用身份，各做各的事</h2>
+    <table>
+      <tr><th style="width:120px">身份</th><th>能做什么</th><th style="width:230px">身份如何被识别</th></tr>
+      <tr>
+        <td><b>管理员 / 教学秘书</b></td>
+        <td>网页端全部功能：名单管理、生成 / 导入 / 发布课表、排课规则、钉钉配置</td>
+        <td>系统登录账号（管理员分配）</td>
+      </tr>
+      <tr>
+        <td><b>带教老师</b></td>
+        <td>网页端查课表；钉钉群里查课、填课程名、请假、建提醒 / 待办</td>
+        <td>「教师管理」里登记的<b>手机号</b> = 钉钉绑定号</td>
+      </tr>
+      <tr>
+        <td><b>研究生汇报人</b></td>
+        <td>钉钉群里查本人汇报、<b>填报 / 修改汇报题目</b></td>
+        <td>「研究生管理」里登记的<b>手机号</b> = 钉钉绑定号</td>
+      </tr>
+    </table>
+    <div class="tip">核心原则：机器人靠手机号认人。手机号没登记或与钉钉不一致，就会提示「未识别到您的身份」——这是绝大多数机器人问题的原因。</div>
+  </div>
+
+  <!-- 2 网页端 -->
+  <div class="card">
+    <h2><span class="no">2</span>网页端：一个月课表的标准流程</h2>
+    <div class="step"><b>1</b><div><b>排课规则</b>（只需设置一次）：每天节数、每节课型顺序（标签可拖动箭头换序）、上课时间、每人每月次数上限。</div></div>
+    <div class="step"><b>2</b><div><b>生成课表 → 生成草稿</b>：系统按规则自动排人，避开请假、避开冲突、均衡负荷。</div></div>
+    <div class="step"><b>3</b><div><b>点格子微调</b>：点击任意课程格，就地修改老师 / 主阅 / 评审 / 指导（支持输入拼音首字母、粘贴「姓名(工号)」快速选中）。</div></div>
+    <div class="step"><b>4</b><div><b>发布并推送钉钉</b>：发布后自动给相关老师建钉钉日程 / 待办，机器人随即可以填报课程名。</div></div>
+    <div class="step"><b>5</b><div><b>导出 Excel</b>：单月「导出Excel」或整年「导出全年」（一个工作表按月分块，改完可直接再导入）。</div></div>
+    <h3>用 Excel 导入课表（推荐首次建表时用）</h3>
+    <ul>
+      <li>先「下载导入模板」，按模板填写；也接受自己排的表（表头含 日期 / 课程 / 节 / 老师等即可）。</li>
+      <li><b>支持全年文件</b>：按每行日期自动分月导入，不用按月拆表。</li>
+      <li>勾选「自动新增名单外人员」：老师列的新名字自动进<b>教师表</b>，主阅列的新名字自动进<b>学生表</b>（只增不改，已有的人绝不覆盖）。</li>
+      <li>合并模式 = 同日同节更新；覆盖模式 = 清空文件涉及的每个月重建（红色提示，慎用）。</li>
+      <li>导入前会先出预览：逐行列出新增 / 更新 / 错误，确认无误再执行。</li>
+    </ul>
+    <div class="warn">科里有两位「王晓」？在「教师管理」给两人分别填<b>别名</b>（如 王晓1、王晓2），导入文件和人员选择器就都能准确区分，系统不会自作主张猜人。</div>
+  </div>
+
+  <!-- 3 名单管理 -->
+  <div class="card">
+    <h2><span class="no">3</span>名单管理：信息越全，排课越省心</h2>
+    <table>
+      <tr><th style="width:130px">页面</th><th>关键字段</th><th>影响</th></tr>
+      <tr><td><b>教师管理</b></td>
+        <td>可讲课 / 可主阅 / 可评审 / 可指导；<b>别名</b>；请假日期；手机号</td>
+        <td>自动排课的人选池；「可指导」决定谁会被排为指导老师；手机号用于钉钉身份与日程</td></tr>
+      <tr><td><b>学生管理</b></td>
+        <td>学号、姓名、年级</td>
+        <td>主阅轮转的人选池</td></tr>
+      <tr><td><b>研究生管理</b></td>
+        <td>编号、姓名、专业、手机号；支持「从教师 / 学生导入」一键勾选</td>
+        <td>第三节「研究生汇报」的汇报人轮转；手机号用于机器人填报题目</td></tr>
+      <tr><td><b>节假日</b></td>
+        <td>停课日期</td>
+        <td>生成课表时自动跳过</td></tr>
+    </table>
+    <p>教师 / 学生 / 研究生名单都支持 Excel 导入导出，改完名单回导即可批量更新。</p>
+  </div>
+
+  <!-- 4 机器人 -->
+  <div class="card">
+    <h2><span class="no">4</span>钉钉机器人指令大全</h2>
+    <p>在教学群里 @机器人（或私聊机器人）发送指令。发「帮助」可随时查看。</p>
+
+    <h3>4.1 所有人都能用</h3>
+    <table>
+      <tr><th style="width:200px">指令</th><th>说明</th></tr>
+      <tr><td><code>今天</code> / <code>明天</code></td><td>全院当日 / 次日课表（无需登记手机号）</td></tr>
+    </table>
+
+    <h3>4.2 老师指令</h3>
+    <table>
+      <tr><th style="width:250px">指令</th><th>说明</th></tr>
+      <tr><td><code>列表</code></td><td>本人待填课程名的课</td></tr>
+      <tr><td><code>12-03 小讲课题目内容</code></td><td>给 12 月 3 日自己讲的课填课程名</td></tr>
+      <tr><td><code>改 12-03 新课程名</code></td><td>修改已填的课程名</td></tr>
+      <tr><td><code>课表 12月</code> / <code>本周</code> / <code>下周</code></td><td>本人课程安排（讲课 / 主阅 / 评审 / 指导全覆盖）</td></tr>
+      <tr><td><code>提醒 12-05 14:00 技能考核</code></td><td>在本人钉钉日历建日程（时间可省略，默认 09:00）</td></tr>
+      <tr><td><code>待办 12-05 提交出科考核表</code></td><td>给本人建钉钉待办（默认当天 18:00 截止）</td></tr>
+      <tr><td><code>请假 12-03</code> 或 <code>请假 12-03 至 12-05</code></td><td>登记请假，下次排课自动避开</td></tr>
+      <tr><td><code>销假 12-03</code></td><td>取消某天请假</td></tr>
+      <tr><td><code>催办</code></td><td>列出还没填课程名的课并 @ 相关老师（管理员用）</td></tr>
+    </table>
+
+    <h3>4.3 研究生汇报人指令</h3>
+    <table>
+      <tr><th style="width:250px">指令</th><th>说明</th></tr>
+      <tr><td><code>列表</code></td><td>本人待填报题目的汇报场次</td></tr>
+      <tr><td><code>12-03 肺结节影像诊断</code></td><td>给 12 月 3 日本人的汇报填题目（也支持 12月3日、12.3）</td></tr>
+      <tr><td><code>改 12-03 新题目</code></td><td>修改已填的题目（已填过直接重发会被拦截，防止误覆盖）</td></tr>
+      <tr><td><code>课表 12月</code> / <code>本周</code> / <code>下周</code></td><td>本人汇报安排与题目状态</td></tr>
+    </table>
+    <div class="tip">题目填好后自动同步：网页端课表即时可见，汇报人钉钉日历上的日程标题同步更新。题目只能由汇报人本人填，替别人填会被拒绝。</div>
+
+    <h3>4.4 课表发布后自动发生的事</h3>
+    <ul>
+      <li>每位相关老师的钉钉日历自动创建课程日程（含时间、课程名、角色）。</li>
+      <li>临期课程提前推送钉钉待办提醒（可在「钉钉配置」里设提醒天数）。</li>
+      <li>研究生汇报节日程挂在汇报人日历上，题目更新后自动改标题。</li>
+    </ul>
+  </div>
+
+  <!-- 5 FAQ -->
+  <div class="card">
+    <h2><span class="no">5</span>常见问题</h2>
+    <table>
+      <tr><th style="width:250px">现象</th><th>原因与解决</th></tr>
+      <tr><td>机器人回复「未识别到您的身份」</td>
+        <td>「教师管理 / 研究生管理」里的手机号没填，或与钉钉绑定号不一致。改好后等约 10 分钟缓存刷新（或让管理员重启服务立即生效）。</td></tr>
+      <tr><td>导入报「查无此人」</td>
+        <td>名单里没有这个人。勾选导入弹窗的「自动新增名单外人员」，或先在名单管理里补录。</td></tr>
+      <tr><td>导入报「缺少老师」</td>
+        <td>教学阅片 / 病例讨论等课型本来就由主阅负责，老师列允许留空，新版会作为警告正常导入。</td></tr>
+      <tr><td>两位同名老师分不清</td>
+        <td>「教师管理 → 编辑 → 别名」分别填不同称呼（如 王晓1 / 王晓2），导入与选择器按别名精确匹配。</td></tr>
+      <tr><td>想交换「教学阅片 / 病例讨论」的先后</td>
+        <td>「排课规则 → 课型编排」：点课型标签的左右箭头换序，保存后重新生成该月。已生成的旧课表不会自动变。</td></tr>
+      <tr><td>老师列的课显示「-」</td>
+        <td>多为历史演示数据引用了已删除的老师，重新生成 / 导入该月即可。</td></tr>
+      <tr><td>没收到钉钉日程</td>
+        <td>① 本人手机号未登记或不一致；② 课表尚未发布；③ 「钉钉配置」里日历同步未开启。</td></tr>
+      <tr><td>误填了课程名 / 题目</td>
+        <td>发 <code>改 12-03 正确内容</code> 覆盖；或让管理员在网页端直接修改。</td></tr>
+      <tr><td>第二个钉钉群也想收课表</td>
+        <td>每个群各自「群设置 → 机器人 → 添加机器人 → 自定义」拿 Webhook；管理员在「钉钉配置 → 其他钉钉群」里添加该群并勾选「启用推送」，发布时两个群同时收到。取消勾选即停用。</td></tr>
+      <tr><td>学生毕业了，历史课表怎么办</td>
+        <td>直接在「学生管理」删除即可。每节课都保存了当时的名字快照，历史课表、导出 Excel、钉钉推送里的名字<b>不会变空白</b>；只有删除前就没排过课的情况无影响。毕业生对应的登录账号会一并删除。</td></tr>
+    </table>
+  </div>
+
+  <!-- 6 联系 -->
+  <div class="card">
+    <h2><span class="no">6</span>遇到解决不了的问题</h2>
+    <ul>
+      <li>网页端数据问题（排错人、课表错了）：联系教学秘书在「生成课表」里点格子修改或重新生成。</li>
+      <li>账号 / 权限：联系系统管理员在「用户管理」里开通。</li>
+      <li>钉钉推送异常：管理员检查「钉钉配置」页的连接状态，点「测试」验证。</li>
+    </ul>
+  </div>
+
+  <footer>教学排课管理系统 · 帮助文档 · 本页可直接打印张贴（打印时自动隐藏按钮）</footer>
+</div>
+</body>
+</html>

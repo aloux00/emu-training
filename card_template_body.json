@@ -1,0 +1,52 @@
+{
+  "config": {
+    "autoLayout": true,
+    "enableForward": true
+  },
+  "header": {
+    "title": {
+      "type": "text",
+      "text": "我的教学任务"
+    }
+  },
+  "contents": [
+    {
+      "type": "markdown",
+      "text": "$markdown",
+      "id": "md_main"
+    },
+    {
+      "type": "text",
+      "text": "$tips",
+      "id": "tip_main"
+    },
+    {
+      "type": "action",
+      "id": "act_main",
+      "actions": [
+        {
+          "type": "button",
+          "label": {
+            "type": "text",
+            "text": "我已确认"
+          },
+          "actionType": "request",
+          "value": "ack",
+          "status": "primary",
+          "id": "btn_ack"
+        },
+        {
+          "type": "button",
+          "label": {
+            "type": "text",
+            "text": "如何填报"
+          },
+          "actionType": "request",
+          "value": "fill",
+          "status": "normal",
+          "id": "btn_fill"
+        }
+      ]
+    }
+  ]
+}

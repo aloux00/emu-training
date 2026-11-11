@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>技能考核考务 · 界面原型</title>
+<style>
+:root{--primary:#185FA5;--bg:#f5f7fa;--border:#e4e7ed;--text:#1f2329;--muted:#64748b;}
+*{box-sizing:border-box;}
+body{margin:0;font-family:-apple-system,"Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);font-size:13px;}
+.top{background:#fff;border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.top h1{font-size:15px;margin:0;color:var(--primary);white-space:nowrap;}
+.top label{color:var(--muted);font-size:12px;display:flex;align-items:center;gap:5px;}
+input,select{border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:13px;font-family:inherit;background:#fff;}
+input[type=number]{width:58px;}
+.btn{border:none;border-radius:6px;padding:7px 14px;background:var(--primary);color:#fff;cursor:pointer;font-size:13px;}
+.btn:hover{opacity:.9;}
+.btn.ghost{background:#fff;color:var(--primary);border:1px solid var(--primary);}
+.btn.sm{padding:4px 10px;font-size:12px;}
+.wrap{display:flex;gap:12px;padding:12px;align-items:flex-start;}
+.left{flex:1;min-width:0;}
+.right{width:372px;flex-shrink:0;}
+.card{background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden;}
+.card>h3{margin:0;padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border);background:#fafbfc;display:flex;justify-content:space-between;align-items:center;}
+.card .body{padding:12px 14px;}
+.stat-row{display:flex;gap:18px;flex-wrap:wrap;padding:10px 14px;background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:12px;}
+.stat b{color:var(--primary);font-size:16px;margin-right:3px;}
+.stat{color:var(--muted);font-size:12px;}
+.stat.warn b{color:#c0392b;}
+.table-scroll{overflow:auto;max-height:66vh;border-top:1px solid var(--border);}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px;}
+th,td{border-right:1px solid #eef0f3;border-bottom:1px solid #eef0f3;padding:0;height:30px;}
+th{background:#f8fafc;color:#475569;font-weight:500;padding:5px 6px;position:sticky;top:0;z-index:3;white-space:nowrap;font-size:11px;}
+td.name{position:sticky;left:0;background:#fff;z-index:2;padding:4px 8px;min-width:150px;border-right:1px solid var(--border);}
+td.name .g{color:#94a3b8;font-size:11px;margin-left:4px;}
+tbody tr:hover td.name{background:#f8fafc;}
+.cell{text-align:center;font-size:11px;color:#1f2329;font-weight:500;line-height:1.15;padding:2px;}
+.cell small{display:block;color:rgba(0,0,0,.45);font-weight:400;font-size:10px;}
+.empty{background:repeating-linear-gradient(45deg,#fbfcfd,#fbfcfd 6px,#f4f6f8 6px,#f4f6f8 12px);}
+.st-list{display:flex;flex-direction:column;gap:6px;}
+.st{display:grid;grid-template-columns:18px 1fr 52px 42px 42px;gap:6px;align-items:center;padding:5px 6px;border:1px solid var(--border);border-left:4px solid #ccc;border-radius:7px;}
+.st.off{opacity:.45;}
+.st .dot{width:12px;height:12px;border-radius:3px;}
+.st input[type=text]{width:100%;padding:3px 6px;font-size:12px;}
+.st input[type=number]{width:100%;padding:3px 4px;font-size:12px;text-align:center;}
+.st-hd{display:grid;grid-template-columns:18px 1fr 52px 42px 42px;gap:6px;padding:0 7px 4px;color:#94a3b8;font-size:11px;}
+.pick{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{border:1px solid var(--border);border-radius:14px;padding:3px 10px;cursor:pointer;user-select:none;background:#fff;font-size:12px;}
+.chip.on{background:#e8f1f9;border-color:var(--primary);color:var(--primary);}
+.sgroup{margin-bottom:8px;}
+.sgroup .gt{color:#94a3b8;font-size:11px;margin-bottom:4px;}
+.stu{display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:5px;}
+.stu:hover{background:#f8fafc;}
+.stu label{flex:1;cursor:pointer;display:flex;align-items:center;gap:6px;}
+.stu .tag{font-size:10px;color:#94a3b8;}
+.mini-st{display:inline-flex;gap:2px;margin-left:auto;}
+.mini-st span{width:16px;height:16px;border-radius:3px;border:1px solid #d9dee5;font-size:9px;line-height:14px;text-align:center;color:#94a3b8;cursor:pointer;}
+.mini-st span.on{border-color:transparent;color:#fff;font-weight:600;}
+.hint{color:#94a3b8;font-size:11px;line-height:1.6;}
+.note{background:#fffbe6;border:1px solid #ffe58f;color:#874d00;border-radius:6px;padding:6px 9px;font-size:11px;line-height:1.6;margin-top:8px;}
+.duty th{font-size:11px;}
+.duty td{text-align:center;padding:2px;font-size:11px;}
+.duty td.lbl{text-align:left;padding:4px 8px;font-weight:500;white-space:nowrap;}
+.flash{animation:fl .9s;}
+@keyframes fl{0%{background:#fff7cc;}100%{background:transparent;}}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>技能考核考务</h1>
+  <label>考试名称 <input id="f-name" style="width:280px" value="2026年07月放射规培基地出科考核"/></label>
+  <label>日期 <input id="f-date" type="date" value="2026-07-30"/></label>
+  <label>开考 <input id="f-start" style="width:76px" value="12:30"/></label>
+  <label>每格 <input id="f-tick" type="number" value="10"/>分</label>
+  <label>换场 <input id="f-gap" type="number" value="1"/>分</label>
+  <label>单次监考 <input id="f-chunk" type="number" value="30"/>分</label>
+  <button class="btn" id="btn-gen">生成考务草稿</button>
+  <button class="btn ghost" id="btn-alt">换一版</button>
+  <button class="btn ghost" id="btn-export">导出 Excel</button>
+</div>
+
+<div class="wrap">
+  <div class="left">
+    <div class="stat-row" id="stats"></div>
+    <div class="card">
+      <h3>考务安排草稿 <span class="hint" id="board-sub"></span></h3>
+      <div class="table-scroll">
+        <table id="board"></table>
+      </div>
+    </div>
+    <div class="card">
+      <h3>监考与场地（按考位）</h3>
+      <div class="table-scroll" style="max-height:none">
+        <table class="duty" id="duty"></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="card">
+      <h3>① 考站设置</h3>
+      <div class="body">
+        <div class="st-hd"><span></span><span>考站</span><span>时长</span><span>考位</span><span>监考</span></div>
+        <div class="st-list" id="st-list"></div>
+        <p class="hint" style="margin:8px 0 0">考位数 = 该站可同时容纳的考生数（A/B 考位）；监考 = 该站同一时刻需要的老师数。</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>② 监考老师 <span class="hint" id="t-count"></span></h3>
+      <div class="body">
+        <div class="pick" id="t-list"></div>
+        <p class="hint" style="margin:8px 0 0">按勾选顺序循环排班；同一时刻不会重复派同一人。</p>
+        <div id="t-warn"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>③ 考生（勾选出科） <span class="hint" id="s-count"></span></h3>
+      <div class="body">
+        <div id="s-list"></div>
+        <p class="hint" style="margin:6px 0 0">点右侧 1–5 小方块可单独设定该生参加的考站；不点则默认全考。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========== 数据 ========== */
+const PALETTE = ['#f7d774','#8ed4a6','#9cc6ee','#f2a2a2','#c3aee0'];
+
+const state = {
+  tick: 10, gap: 1, start: '12:30', dutyChunk: 30, runs: 12,
+  stations: [
+    {seq:1,name:'第一站',dur:10,rooms:2,teachers:1,addr:'10号楼一楼诊断室',on:true},
+    {seq:2,name:'第二站',dur:30,rooms:2,teachers:1,addr:'10号楼一楼读片室',on:true},
+    {seq:3,name:'第三站',dur:30,rooms:2,teachers:1,addr:'10号楼一楼诊断室（南）',on:true},
+    {seq:4,name:'第四站',dur:10,rooms:2,teachers:1,addr:'10号楼一楼诊断室（北）',on:true},
+    {seq:5,name:'第五站',dur:10,rooms:2,teachers:1,addr:'10号楼一楼北诊断室',on:true},
+  ],
+  teachers: ['王力','苏雪娟','刘金岭','李运奇','赵敏','陈立','周涛','吴敏'],
+  pickedT: ['王力','苏雪娟','刘金岭','李运奇','赵敏','陈立','周涛','吴敏'],
+  students: [
+    {id:1,name:'杨骐彰',group:'影像三年级 B组',on:true,st:[1,2,3,4,5]},
+    {id:2,name:'张淦',  group:'影像三年级 B组',on:true,st:[1,2,3,4,5]},
+    {id:3,name:'李一坤',group:'影像三年级 A组',on:true,st:[1,2,3]},
+    {id:4,name:'张家明',group:'影像二年级 A组',on:true,st:[1,2,3,4,5]},
+    {id:5,name:'刘家荣',group:'影像二年级 A组',on:true,st:[2,3,4,5]},
+    {id:6,name:'杨丽冬',group:'影像二年级 A组',on:true,st:[1,2,3,4,5]},
+    {id:7,name:'周小萌',group:'影像二年级 B组',on:false,st:[1,2,3,4,5]},
+    {id:8,name:'陈思远',group:'影像一年级 A组',on:false,st:[1,2,3,4,5]},
+  ],
+  result: null,   // {rows:[{stu, segs}], duty:[...], ticks, end}
+};
+
+/* ========== 工具 ========== */
+const $ = s => document.querySelector(s);
+const el = (t,c,h) => { const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
+
+function timeAt(i){
+  const [h,m] = state.start.split(':').map(Number);
+  const base = h*60+m;
+  const step = state.tick + state.gap;
+  const s = base + i*step, e = s + state.tick;
+  const f = x => String(Math.floor(x/60)).padStart(2,'0')+':'+String(x%60).padStart(2,'0');
+  return f(s)+'-'+f(e);
+}
+
+/* ========== 排程核心 ========== */
+function rngOf(seed){ let s=(seed*2654435761)>>>0; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
+
+function buildOnce(seed){
+  const sts = state.stations.filter(s=>s.on);
+  if(!sts.length) return null;
+  const dur = {}, rooms = {}, color = {};
+  sts.forEach((s,i)=>{ dur[s.seq]=s.dur; rooms[s.seq]=s.rooms; color[s.seq]=PALETTE[i%5]; });
+
+  const occ = {};
+  sts.forEach(s=>{ for(let r=0;r<s.rooms;r++) occ[s.seq+'-'+r]=[]; });
+
+  const freeRoom = (seq,a,b)=>{
+    for(let r=0;r<rooms[seq];r++){
+      let ok=true;
+      for(const o of occ[seq+'-'+r]){
+        if(a < o.b && o.a < b){ ok=false; break; }
+      }
+      if(ok) return r;
+    }
+    return null;
+  };
+  const tryPath = (path,start)=>{
+    let t=start, seg=[];
+    for(const seq of path){
+      const r = freeRoom(seq,t,t+dur[seq]);
+      if(r===null) return null;
+      seg.push({seq,room:r,a:t,b:t+dur[seq]});
+      t += dur[seq];
+    }
+    return seg;
+  };
+  const perms = a => {
+    if(a.length<=1) return [a];
+    const out=[];
+    a.forEach((x,i)=> perms(a.slice(0,i).concat(a.slice(i+1))).forEach(p=>out.push([x,...p])));
+    return out;
+  };
+
+  const rand = rngOf(seed);
+  const cands = state.students.filter(s=>s.on && s.st.some(q=>dur[q]));
+  cands.sort((x,y)=>{
+    const tx = y.st.reduce((a,q)=>a+(dur[q]||0),0) - x.st.reduce((a,q)=>a+(dur[q]||0),0);
+    return tx !== 0 ? tx : (seed===0 ? 0 : rand()-0.5);
+  });
+
+  const placed = [];
+  const slotTotal = Math.max(1, sts.reduce((a,s)=>a+s.rooms,0));
+  const avg = cands.reduce((a,s)=>a+s.st.reduce((z,q)=>z+(dur[q]||0),0),0) / slotTotal;
+  const limit = Math.ceil(avg * 1.6) + 120;
+
+  const stuBusy = {};   // 学生 id -> [{a,b}]
+  const findSlot = (id, seq, from)=>{
+    const d = dur[seq];
+    for(let s=from; s<=limit; s+=state.tick){
+      if((stuBusy[id]||[]).some(o=> s<o.b && o.a<s+d)) continue;
+      const r = freeRoom(seq, s, s+d);
+      if(r!==null) return {s, r};
+    }
+    return null;
+  };
+  const put = (stu, seq, s, r)=>{
+    const d = dur[seq];
+    occ[seq+'-'+r].push({who:stu.id, a:s, b:s+d});
+    (stuBusy[stu.id] = stuBusy[stu.id] || []).push({a:s, b:s+d, seq, room:r});
+  };
+
+  // 骨架：先排"长站"（>1 格），短站留到后面填空档
+  for(const stu of cands){
+    const seqs = stu.st.filter(q=>dur[q]);
+    stuBusy[stu.id] = [];
+    const longs = seqs.filter(q=>dur[q] > state.tick).sort((a,b)=>dur[b]-dur[a]);
+    const shorts = seqs.filter(q=>dur[q] <= state.tick);
+    if(seed>0 && longs.length>1){
+      for(let i=longs.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1)); [longs[i],longs[j]]=[longs[j],longs[i]]; }
+    }
+    let cursor = 0, ok = true;
+    for(const q of longs){
+      let at = findSlot(stu.id, q, cursor);
+      if(!at && cursor > 0) at = findSlot(stu.id, q, 0);   // 后面排不下时，回头补前面的空档
+      if(!at){ ok=false; break; }
+      put(stu, q, at.s, at.r);
+      cursor = Math.max(cursor, at.s + dur[q]);
+    }
+    if(!ok){ placed.push({stu, segs:null}); continue; }
+    // 填充：短站尽量紧贴长站（先往前挤，再往后接），避免表格里出现大段空白
+    const shortOrder = seed>0 ? shorts.slice().sort(()=>rand()-0.5) : shorts;
+    let firstStart = Math.min(...stuBusy[stu.id].map(o=>o.a));
+    let lastEnd = Math.max(...stuBusy[stu.id].map(o=>o.b));
+    for(const q of shortOrder){
+      const d = dur[q];
+      let at = null;
+      for(let s = firstStart - d; s >= 0; s -= state.tick){   // 向前紧贴
+        if((stuBusy[stu.id]||[]).some(o=> s<o.b && o.a<s+d)) continue;
+        const r = freeRoom(q, s, s+d);
+        if(r!==null){ at = {s, r}; break; }
+      }
+      if(!at) at = findSlot(stu.id, q, lastEnd);              // 向前放不下就往后接
+      if(!at){ ok=false; break; }
+      put(stu, q, at.s, at.r);
+      firstStart = Math.min(firstStart, at.s);
+      lastEnd = Math.max(lastEnd, at.s + d);
+    }
+    if(!ok){ placed.push({stu, segs:null}); continue; }
+    const segs = stuBusy[stu.id].slice().sort((x,y)=>x.a-y.a)
+      .map(o=>({seq:o.seq, room:o.room, a:o.a, b:o.b}));
+    placed.push({stu, segs});
+  }
+
+  const ticks = Math.max(1, ...placed.map(r=> r.segs ? Math.ceil(r.segs[r.segs.length-1].b / state.tick) : 0));
+
+  // ---- 监考：按考位连续段切块，老师循环 ----
+  const duty = [];
+  const busy = {};   // teacher -> [[a,b],...]
+  let ptr = 0;
+  const pool = state.pickedT.slice();
+  const pickTeacher = (a,b)=>{
+    if(!pool.length) return '';
+    for(let k=0;k<pool.length*2;k++){
+      const t = pool[ptr % pool.length]; ptr++;
+      const bs = busy[t] || (busy[t]=[]);
+      if(!bs.some(([x,y])=> a<y && x<b)){
+        bs.push([a,b]);
+        return t;
+      }
+    }
+    return '缺';
+  };
+
+  sts.forEach(st=>{
+    for(let r=0;r<st.rooms;r++){
+      const segs = occ[st.seq+'-'+r].slice().sort((x,y)=>x.a-y.a);
+      // 合并连续/相邻占用
+      const blocks=[];
+      segs.forEach(sg=>{
+        const last = blocks[blocks.length-1];
+        if(last && sg.a <= last.b) last.b = Math.max(last.b, sg.b);
+        else blocks.push({a:sg.a,b:sg.b});
+      });
+      blocks.forEach(bl=>{
+        const chunk = state.dutyChunk;
+        for(let t=bl.a; t<bl.b; t+=chunk){
+          const e = Math.min(bl.b, t+chunk);
+          const names=[];
+          for(let k=0;k<st.teachers;k++) names.push(pickTeacher(t,e));
+          duty.push({station:st.seq, room:r, a:t, b:e, teachers:names});
+        }
+      });
+    }
+  });
+
+  return {rows:placed, duty, ticks, sts, dur, color, end: ticks*state.tick, seed};
+}
+
+/* 多次重启取最优：不同学生进场顺序会得到不同的错峰效果 */
+function buildSchedule(){
+  const runs = Math.max(1, Math.min(24, state.runs || 12));
+  const all = [];
+  for(let k=0;k<runs;k++){
+    const r = buildOnce(k);
+    if(!r) return null;
+    r._score = r.rows.filter(x=>!x.segs).length*10000 + r.end;
+    all.push(r);
+  }
+  all.sort((a,b)=>a._score-b._score);
+  state.pool = all;
+  state.alt = (state.alt||0) % all.length;
+  return all[state.alt];
+}
+
+/* ========== 渲染：统计 ========== */
+function renderStats(){
+  const r = state.result;
+  const box = $('#stats');
+  if(!r){ box.innerHTML='<span class="hint">尚未生成</span>'; return; }
+  const people = r.rows.length;
+  const done = r.rows.filter(x=>x.segs).length;
+  // 峰值监考需求
+  let peak=0;
+  for(let t=0;t<r.ticks;t++){
+    const a=t*state.tick, b=a+state.tick;
+    let n=0;
+    state.stations.filter(s=>s.on).forEach(s=>{
+      for(let room=0;room<s.rooms;room++){
+        const used = r.rows.some(x=>x.segs && x.segs.some(sg=>sg.seq===s.seq&&sg.room===room&&sg.a<b&&sg.b>a));
+        if(used) n += s.teachers;
+      }
+    });
+    peak = Math.max(peak,n);
+  }
+  const endT = timeAt(Math.max(0,r.ticks-1)).split('-')[1];
+  box.innerHTML = `
+    <div class="stat"><b>${people}</b>名考生（${done} 人已排）</div>
+    <div class="stat"><b>${r.ticks}</b>个时段 / <b>${r.end}</b> 分钟</div>
+    <div class="stat"><b>${timeAt(0).split('-')[0]}–${endT}</b> 预计占用</div>
+    <div class="stat"><b>${peak}</b>人峰值监考需求</div>
+    <div class="stat ${state.pickedT.length>=peak?'':'warn'}"><b>${state.pickedT.length}</b>名老师已勾选</div>
+  `;
+}
+
+/* ========== 渲染：主表 ========== */
+function renderBoard(){
+  const tb = $('#board');
+  const r = state.result;
+  if(!r){ tb.innerHTML='<tbody><tr><td class="hint" style="padding:20px">勾选考生后点「生成考务草稿」</td></tr></tbody>'; return; }
+  const stName = {}; r.sts.forEach(s=>stName[s.seq]=s.name);
+  let h = '<thead><tr><th style="position:sticky;left:0;z-index:4;min-width:150px;text-align:left">考生 / 组别</th>';
+  for(let i=0;i<r.ticks;i++) h += `<th>${timeAt(i)}</th>`;
+  h += '<th style="border-left:2px solid #cbd5e1">已考站</th></tr></thead><tbody>';
+
+  r.rows.forEach(row=>{
+    h += `<tr><td class="name"><label style="cursor:pointer"><input type="checkbox" ${row.stu.on?'checked':''} data-sid="${row.stu.id}" style="vertical-align:-2px"> ${row.stu.name}</label><span class="g">${row.stu.group}</span></td>`;
+    if(!row.segs){
+      h += `<td class="empty" colspan="${r.ticks}" style="text-align:center;color:#c0392b;font-size:11px">排不下（考位不足或时段冲突）</td>`;
+    }else{
+      const cell = {};
+      row.segs.forEach(sg=>{ for(let t=sg.a/state.tick; t<sg.b/state.tick; t++) cell[t]=sg; });
+      let t=0;
+      while(t<r.ticks){
+        const sg = cell[t];
+        if(!sg){ h += '<td class="empty"></td>'; t++; continue; }
+        const span = sg.b/state.tick - t;
+        const bg = r.color[sg.seq];
+        h += `<td class="cell" colspan="1" rowspan="${span}" style="background:${bg}">${stName[sg.seq]}${String.fromCharCode(65+sg.room)}</td>`;
+        t += span;
+      }
+    }
+    h += `<td style="border-left:2px solid #cbd5e1;text-align:center;color:#475569">${row.segs?row.segs.map(s=>s.seq).join('·'):'-'}</td></tr>`;
+  });
+  tb.innerHTML = h+'</tbody>';
+  $('#board-sub').textContent = `共 ${r.ticks} 个时段，每格 ${state.tick} 分钟，换场 ${state.gap} 分钟`;
+}
+
+/* ========== 渲染：监考表 ========== */
+function renderDuty(){
+  const tb = $('#duty');
+  const r = state.result;
+  if(!r){ tb.innerHTML=''; return; }
+  const stName={}; r.sts.forEach(s=>stName[s.seq]=s.name);
+  let h = '<thead><tr><th style="text-align:left;min-width:120px">考位</th><th style="text-align:left;min-width:90px">地址</th>';
+  for(let i=0;i<r.ticks;i++) h+=`<th>${timeAt(i).split('-')[0]}</th>`;
+  h += '<th>监考老师</th></tr></thead><tbody>';
+
+  r.sts.forEach(st=>{
+    for(let room=0; room<st.rooms; room++){
+      const blocks = r.duty.filter(d=>d.station===st.seq && d.room===room);
+      const cellOf = {};
+      blocks.forEach(b=>{ for(let t=b.a/state.tick;t<b.b/state.tick;t++) cellOf[t]=b; });
+      const names = [...new Set(blocks.flatMap(b=>b.teachers).filter(Boolean))];
+      h += `<tr><td class="lbl">${st.name}${String.fromCharCode(65+room)}</td><td class="lbl" style="color:#64748b;font-size:11px">${st.addr||'—'}</td>`;
+      let t=0;
+      while(t<r.ticks){
+        const b = cellOf[t];
+        if(!b){ h += '<td class="empty"></td>'; t++; continue; }
+        const span = b.b/state.tick - t;
+        h += `<td rowspan="${span}" style="background:#eef6fc;color:#185FA5">${b.teachers.join('<br>')}</td>`;
+        t += span;
+      }
+      h += `<td style="color:#64748b">${names.length?names.join('、'):'—'}</td></tr>`;
+    }
+  });
+  tb.innerHTML = h+'</tbody>';
+}
+
+/* ========== 渲染：右侧面板 ========== */
+function renderStations(){
+  const box = $('#st-list'); box.innerHTML='';
+  state.stations.forEach((s,i)=>{
+    const d = el('div','st'+(s.on?'':' off'));
+    d.innerHTML = `<input type="checkbox" ${s.on?'checked':''} data-i="${i}" class="st-on">
+      <input type="text" value="${s.name}" data-i="${i}" class="st-name">
+      <input type="number" value="${s.dur}" data-i="${i}" class="st-dur">
+      <input type="number" value="${s.rooms}" data-i="${i}" class="st-rooms" min="1">
+      <input type="number" value="${s.teachers}" data-i="${i}" class="st-tea" min="1">`;
+    d.style.borderLeftColor = PALETTE[i%5];
+    box.appendChild(d);
+  });
+  box.querySelectorAll('.st-on').forEach(x=>x.onchange=e=>{ state.stations[+e.target.dataset.i].on=e.target.checked; renderStations(); autoGen(); });
+  box.querySelectorAll('.st-name').forEach(x=>x.oninput=e=>{ state.stations[+e.target.dataset.i].name=e.target.value; });
+  box.querySelectorAll('.st-dur').forEach(x=>x.onchange=e=>{ state.stations[+e.target.dataset.i].dur=+e.target.value||10; autoGen(); });
+  box.querySelectorAll('.st-rooms').forEach(x=>x.onchange=e=>{ state.stations[+e.target.dataset.i].rooms=Math.max(1,+e.target.value||1); autoGen(); });
+  box.querySelectorAll('.st-tea').forEach(x=>x.onchange=e=>{ state.stations[+e.target.dataset.i].teachers=Math.max(1,+e.target.value||1); autoGen(); });
+}
+
+function renderTeachers(){
+  const box=$('#t-list'); box.innerHTML='';
+  state.teachers.forEach(t=>{
+    const c=el('span','chip'+(state.pickedT.includes(t)?' on':''),t);
+    c.onclick=()=>{
+      const i=state.pickedT.indexOf(t);
+      i>=0 ? state.pickedT.splice(i,1) : state.pickedT.push(t);
+      renderTeachers();
+    };
+    box.appendChild(c);
+  });
+  $('#t-count').textContent = `已选 ${state.pickedT.length}/${state.teachers.length} 人`;
+}
+
+function renderStudents(){
+  const box=$('#s-list'); box.innerHTML='';
+  const groups={};
+  state.students.forEach(s=>{ (groups[s.group]=groups[s.group]||[]).push(s); });
+  Object.keys(groups).forEach(g=>{
+    const gd=el('div','sgroup');
+    gd.appendChild(el('div','gt',g));
+    groups[g].forEach(s=>{
+      const row=el('div','stu');
+      row.innerHTML=`<label><input type="checkbox" ${s.on?'checked':''} data-id="${s.id}"> ${s.name}</label>
+        <span class="mini-st">${[1,2,3,4,5].map(q=>`<span data-id="${s.id}" data-q="${q}" class="${s.st.includes(q)?'on':''}" style="${s.st.includes(q)?'background:'+PALETTE[q-1]:''}">${q}</span>`).join('')}</span>`;
+      box.appendChild(gd); gd.appendChild(row);
+    });
+  });
+  box.querySelectorAll('input[data-id]').forEach(x=>x.onchange=e=>{
+    const s=state.students.find(z=>z.id==e.target.dataset.id); s.on=e.target.checked;
+    renderStudents(); autoGen();
+  });
+  box.querySelectorAll('span[data-q]').forEach(x=>x.onclick=e=>{
+    const s=state.students.find(z=>z.id==e.currentTarget.dataset.id);
+    const q=+e.currentTarget.dataset.q;
+    s.st.includes(q)? s.st=s.st.filter(v=>v!==q) : s.st.push(q);
+    s.st.sort();
+    renderStudents(); autoGen();
+  });
+  $('#s-count').textContent = `共 ${state.students.length} 人，已勾选 ${state.students.filter(s=>s.on).length} 人`;
+}
+
+function renderWarn(){
+  const box=$('#t-warn'); const r=state.result;
+  if(!r){ box.innerHTML=''; return; }
+  let need=0;
+  for(let t=0;t<r.ticks;t++){
+    const a=t*state.tick,b=a+state.tick; let n=0;
+    r.sts.forEach(s=>{
+      for(let room=0;room<s.rooms;room++){
+        if(r.rows.some(x=>x.segs&&x.segs.some(sg=>sg.seq===s.seq&&sg.room===room&&sg.a<b&&sg.b>a))) n+=s.teachers;
+      }
+    });
+    need=Math.max(need,n);
+  }
+  if(need>state.pickedT.length){
+    box.innerHTML=`<div class="note">同一时刻最多需要 <b>${need}</b> 名监考，当前只勾选 <b>${state.pickedT.length}</b> 名，建议补充老师或减少考位/监考人数。</div>`;
+  }else box.innerHTML='';
+}
+
+/* ========== 主流程 ========== */
+function autoGen(reset){
+  if(reset) state.alt = 0;
+  state.result = buildSchedule();
+  renderStats(); renderBoard(); renderDuty(); renderWarn();
+}
+function bindInputs(){
+  $('#f-tick').onchange = e=>{ state.tick=Math.max(5,+e.target.value||10); autoGen(); };
+  $('#f-gap').onchange  = e=>{ state.gap=+e.target.value||0; autoGen(); };
+  $('#f-start').onchange= e=>{ state.start=e.target.value||'12:30'; autoGen(); };
+  $('#f-chunk').onchange= e=>{ state.dutyChunk=Math.max(state.tick,+e.target.value||30); autoGen(); };
+  $('#btn-gen').onclick = ()=>autoGen(true);
+  $('#btn-alt').onclick = ()=>{ state.alt=(state.alt||0)+1; autoGen(); };
+  $('#btn-export').onclick = ()=>{
+    if(!state.result) return alert('请先生成考务草稿');
+    exportCSV();
+  };
+}
+function exportCSV(){
+  const r=state.result, stName={}; r.sts.forEach(s=>stName[s.seq]=s.name);
+  const rows=[];
+  const head=['考生','组别']; for(let i=0;i<r.ticks;i++) head.push(timeAt(i)); head.push('已考站');
+  rows.push(head);
+  r.rows.forEach(row=>{
+    const line=[row.stu.name,row.stu.group];
+    const cell={};
+    if(row.segs) row.segs.forEach(sg=>{ for(let t=sg.a/state.tick;t<sg.b/state.tick;t++) cell[t]=stName[sg.seq]+String.fromCharCode(65+sg.room); });
+    for(let i=0;i<r.ticks;i++) line.push(cell[i]||'');
+    line.push(row.segs?row.segs.map(s=>s.seq).join('·'):'');
+    rows.push(line);
+  });
+  rows.push([]); rows.push(['考位','地址','监考老师']);
+  r.sts.forEach(st=>{ for(let room=0;room<st.rooms;room++){
+    const blocks=r.duty.filter(d=>d.station===st.seq&&d.room===room);
+    const names=[...new Set(blocks.flatMap(b=>b.teachers).filter(Boolean))];
+    rows.push([st.name+String.fromCharCode(65+room), st.addr||'', names.join('、')]);
+  }});
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download='考务安排.csv'; a.click();
+}
+
+renderStations(); renderTeachers(); renderStudents(); bindInputs(); autoGen();
+</script>
+</body>
+</html>

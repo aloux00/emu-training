@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+pyjwt
+python-multipart
+pypinyin

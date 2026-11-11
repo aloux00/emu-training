@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>排课系统 · 钉钉图标预览</title>
+<style>
+  :root{--primary:#185FA5;--bg:#f5f7fa;--text:#1f2329;--border:#e4e7ed;}
+  *{box-sizing:border-box}
+  body{margin:0;padding:32px;background:var(--bg);color:var(--text);
+       font-family:-apple-system,"Microsoft YaHei",sans-serif}
+  h1{font-size:20px;margin:0 0 6px}
+  .sub{color:#6b7280;font-size:13px;margin-bottom:24px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:980px}
+  .card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px}
+  .card h2{font-size:15px;margin:0 0 4px;color:var(--primary)}
+  .card p{font-size:12px;color:#6b7280;margin:0 0 16px;line-height:1.6}
+  .row{display:flex;align-items:flex-end;gap:22px;flex-wrap:wrap}
+  .item{text-align:center;font-size:11px;color:#9ca3af}
+  .item img{display:block;border-radius:14px;box-shadow:0 4px 14px rgba(24,95,165,.18)}
+  .dark{background:#1f2937;border-color:#374151}
+  .dark h2{color:#7cc4f0}
+  .dark p{color:#9ca3af}
+  .dark .item{color:#6b7280}
+  .note{max-width:980px;margin-top:18px;background:#eff6ff;border:1px solid #bfdbfe;
+        color:#1e40af;border-radius:10px;padding:14px 16px;font-size:12.5px;line-height:1.8}
+  code{background:#dbeafe;padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<h1>钉钉图标预览</h1>
+<div class="sub">配色取自系统主色 #185FA5 / #0C447C，与登录页渐变同源</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>① 机器人头像</h2>
+    <p>用于「企业内部应用 → 机器人 → 头像」，钉钉会裁成圆形显示</p>
+    <div class="row">
+      <div class="item"><img src="dingtalk-bot-128.png" width="128" height="128"/>128 px</div>
+      <div class="item"><img src="dingtalk-bot-256.png" width="96" height="96"/>96 显示</div>
+      <div class="item"><img src="dingtalk-bot-256.png" width="56" height="56"/>56 会话列表</div>
+    </div>
+  </div>
+
+  <div class="card dark">
+    <h2>① 机器人头像（深色底效果）</h2>
+    <p>钉钉深色模式下的实际观感</p>
+    <div class="row">
+      <div class="item"><img src="dingtalk-bot-256.png" width="96" height="96"/>96 px</div>
+      <div class="item"><img src="dingtalk-bot-128.png" width="56" height="56"/>56 px</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>② 企业应用图标</h2>
+    <p>用于「钉钉开发者后台 → 应用信息 → 应用图标」，建议上传 512×512</p>
+    <div class="row">
+      <div class="item"><img src="dingtalk-app-512.png" width="160" height="160"/>160 px</div>
+      <div class="item"><img src="dingtalk-app-256.png" width="96" height="96"/>96 px</div>
+      <div class="item"><img src="dingtalk-app-128.png" width="56" height="56"/>56 px</div>
+    </div>
+  </div>
+
+  <div class="card dark">
+    <h2>② 企业应用图标（深色底效果）</h2>
+    <p>钉钉工作台深色模式</p>
+    <div class="row">
+      <div class="item"><img src="dingtalk-app-256.png" width="96" height="96"/>96 px</div>
+      <div class="item"><img src="dingtalk-app-128.png" width="56" height="56"/>56 px</div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <b>上传位置</b><br/>
+  机器人头像：钉钉开发者后台 → 应用 → 机器人 → 机器人设置 → 头像（上传 <code>dingtalk-bot-512.png</code>）<br/>
+  应用图标：钉钉开发者后台 → 应用 → 应用信息 → 图标（上传 <code>dingtalk-app-512.png</code>）<br/>
+  两者均为满幅方形、无内边距，钉钉会自动做圆形/圆角裁切；如需重绘可改 <code>assets/make_icons.py</code> 后重跑。
+</div>
+</body>
+</html>

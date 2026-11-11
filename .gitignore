@@ -1,0 +1,17 @@
+# 敏感数据（含钉钉密钥、师生手机号，禁止入库）
+schedule.db
+schedule.db.bak-*
+*.db.bak
+
+# 运行产物
+__pycache__/
+*.pyc
+uvicorn.log
+uvicorn.err.log
+*.log
+
+# 本地工作文件
+.workbuddy/
+
+# 含真实师生姓名的排课示例文件
+月计划_*.xlsx
