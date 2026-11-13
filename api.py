@@ -192,6 +192,23 @@ def del_teachers_batch(payload: dict, _=Depends(admin_only)):
     return {"ok": True, "deleted": deleted}
 
 
+@router.post("/teachers/batch-toggle")
+def toggle_teachers(payload: dict, _=Depends(auth.staff_only)):
+    """批量启用/停用教师。停用 = 不参与自动排课、不出现在人员选择名单；历史课表与登录账号不受影响。"""
+    ids = [int(x) for x in (payload.get("ids") or []) if str(x).isdigit()]
+    enabled = bool(payload.get("enabled"))
+    if not ids:
+        raise HTTPException(400, "未选择任何教师")
+    with Session(db.engine) as s:
+        n = 0
+        for d in s.exec(select(models.Teacher).where(models.Teacher.id.in_(ids))).all():
+            d.enabled = enabled
+            s.add(d)
+            n += 1
+        s.commit()
+    return {"ok": True, "count": n, "enabled": enabled}
+
+
 # ---------- STUDENTS ----------
 @router.get("/students")
 def list_students(_=Depends(auth.get_current_user)):
@@ -365,7 +382,7 @@ _ROSTER_BORDER = Side(style="thin", color="D0D4DA")
 _GRADES = ("一年级", "二年级", "三年级")
 _DATE_RE = _re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
-TEACHER_COLUMNS = ["工号", "姓名", "别名", "可讲课", "可主阅", "可评审", "可指导", "请假日期", "手机号"]
+TEACHER_COLUMNS = ["工号", "姓名", "别名", "可讲课", "可主阅", "可评审", "可指导", "请假日期", "手机号", "启用"]
 STUDENT_COLUMNS = ["学号", "姓名", "年级"]
 
 
@@ -450,7 +467,7 @@ def _read_rows(file: UploadFile, first_col_names: tuple):
 @router.get("/teachers/template")
 def teachers_template(_=Depends(auth.get_current_user)):
     wb = _roster_wb(
-        "教师名单", TEACHER_COLUMNS, [], [12, 12, 12, 8, 8, 8, 8, 34, 14],
+        "教师名单", TEACHER_COLUMNS, [], [12, 12, 12, 8, 8, 8, 8, 34, 14, 8],
         ["教师名单导入格式说明", "",
          "第 1 列 工号（必填，唯一。已存在的工号将更新该教师信息，不存在则新增）",
          "第 2 列 姓名（必填）",
@@ -458,6 +475,7 @@ def teachers_template(_=Depends(auth.get_current_user)):
          "第 4-7 列 可讲课 / 可主阅 / 可评审 / 可指导（填 是 或 否，可留空，留空默认「是」）",
          "第 8 列 请假日期（可选。格式 YYYY-MM-DD，多个日期用逗号分隔，如 2026-11-10,2026-11-11）",
          "第 9 列 手机号（可选。11 位手机号，需与教师钉钉绑定号一致，用于自动创建待办提醒；更新时留空则保持原值）",
+         "第 10 列 启用（可选。填 是 或 否；留空保持原状态。停用的教师不参与自动排课、不出现在人员选择名单）",
          "",
          "提示：请直接在第 1 个工作表从第 2 行开始填写；「填写说明」工作表无需删除，导入时会被忽略。"])
     return _roster_response(wb, "teacher_template.xlsx")
@@ -469,8 +487,8 @@ def teachers_export(_=Depends(auth.get_current_user)):
         ts = s.exec(select(models.Teacher).order_by(models.Teacher.emp_id)).all()
     rows = [[t.emp_id, t.name, getattr(t, "aliases", "") or "", "是" if t.can_teach else "否",
              "是" if t.can_main_read else "否", "是" if t.can_review else "否", "是" if t.can_mentor else "否",
-             t.leave_dates or "", t.phone or ""] for t in ts]
-    wb = _roster_wb("教师名单", TEACHER_COLUMNS, rows, [12, 12, 12, 8, 8, 8, 8, 34, 14], ["教师名单（系统导出）"])
+             t.leave_dates or "", t.phone or "", "是" if getattr(t, "enabled", True) else "否"] for t in ts]
+    wb = _roster_wb("教师名单", TEACHER_COLUMNS, rows, [12, 12, 12, 8, 8, 8, 8, 34, 14, 8], ["教师名单（系统导出）"])
     return _roster_response(wb, "teachers.xlsx")
 
 
@@ -501,6 +519,9 @@ def teachers_import(file: UploadFile = File(...), _=Depends(auth.get_current_use
                 leave = _leave_cell(row[7] if len(row) > 7 else None)
                 phone = str(row[8]).strip() if len(row) > 8 and row[8] is not None else ""
                 aliases = str(row[2]).strip() if len(row) > 2 and row[2] is not None else ""
+                # 第 10 列 启用（可选）：留空 = 更新时保留原状态 / 新增默认启用
+                en = _bool_cell(row[9] if len(row) > 9 else None, None) \
+                    if len(row) > 9 and row[9] not in (None, "") else None
                 if phone and not _PHONE_RE.match(phone):
                     raise ValueError("手机号应为 11 位数字（如 13812345678），可留空")
                 if emp_id in existing:
@@ -509,12 +530,15 @@ def teachers_import(file: UploadFile = File(...), _=Depends(auth.get_current_use
                         name, aliases, can_teach, can_main_read, can_review, can_mentor, leave
                     if phone:          # 留空则保留原有手机号
                         t.phone = phone
+                    if en is not None:  # 留空则保留原有启用状态
+                        t.enabled = en
                     updated += 1
                 else:
                     s.add(models.Teacher(emp_id=emp_id, name=name, aliases=aliases,
                                          can_teach=can_teach, can_main_read=can_main_read,
                                          can_review=can_review, can_mentor=can_mentor,
-                                         leave_dates=leave, phone=phone))
+                                         leave_dates=leave, phone=phone,
+                                         enabled=True if en is None else en))
                     created += 1
                 if _ensure_user(s, emp_id, name, "teacher"):
                     accounts += 1
@@ -686,7 +710,8 @@ def teacher_load(year: int, month: int, _=Depends(auth.get_current_user)):
             return None
 
     with Session(db.engine) as s:
-        teachers = s.exec(select(models.Teacher)).all()
+        # 停用教师不出现在负荷表 / 换人名单（仍会显示在历史课表里）
+        teachers = [t for t in s.exec(select(models.Teacher)).all() if getattr(t, "enabled", True)]
         rows = s.exec(select(models.ClassSession)).all()
         out = []
         for t in teachers:
@@ -732,7 +757,9 @@ def build_history(s):
 def generate(payload: dict, _=Depends(auth.staff_only)):
     year = int(payload["year"]); month = int(payload["month"])
     with Session(db.engine) as s:
-        teachers = [t.dict() for t in s.exec(select(models.Teacher)).all()]
+        # 停用教师不参与自动排课轮转（历史课表不受影响）
+        teachers = [t.dict() for t in s.exec(select(models.Teacher)).all()
+                    if getattr(t, "enabled", True)]
         students = [t.dict() for t in s.exec(select(models.Student)).all()]
         graduates = [g.dict() for g in s.exec(select(models.Graduate)).all()]
         cts = [c.dict() for c in s.exec(select(models.ClassType)).all()]

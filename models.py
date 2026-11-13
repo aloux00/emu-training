@@ -20,6 +20,7 @@ class Teacher(SQLModel, table=True):
     can_review: bool = True
     can_mentor: bool = True
     leave_dates: str = ""  # comma separated YYYY-MM-DD
+    enabled: bool = True   # 启用状态：停用后不参与自动排课、不出现在人员选择名单（历史课表不受影响）
     phone: str = ""        # 钉钉绑定的手机号，用于自动创建待办提醒（可空）
     invite_token: str = ""  # 课程内容填报链接的令牌（钉钉待办 detailUrl 使用）
 

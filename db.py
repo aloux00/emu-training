@@ -245,6 +245,15 @@ def _migrate():
                     "(SELECT name FROM graduate WHERE graduate.id=classsession.presenter_id),'') "
                     "WHERE presenter_id>0 AND presenter_name=''")
                 cur.execute("PRAGMA user_version=8")
+            # 一次性迁移 v9：教师启用/停用字段
+            cur.execute("PRAGMA user_version")
+            ver = (cur.fetchone() or [0])[0] or 0
+            if ver < 9:
+                cur.execute("PRAGMA table_info(teacher)")
+                tcols = [r[1] for r in cur.fetchall()]
+                if "enabled" not in tcols:
+                    cur.execute("ALTER TABLE teacher ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1")
+                cur.execute("PRAGMA user_version=9")
             conn.commit()
     except Exception:
         # 迁移失败不能静默：异常会导致整个事务回滚（连前面已执行的 ALTER 也丢失）
