@@ -12,7 +12,9 @@ app = FastAPI(title="教学排课管理系统")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    # 登录态走 Authorization: Bearer 头（不是 Cookie），因此不需要 credentials；
+    # allow_origins=["*"] 与 allow_credentials=True 同时为真是无效组合（浏览器会拒绝响应）。
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

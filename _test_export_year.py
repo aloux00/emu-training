@@ -28,7 +28,12 @@ def check(name, cond, detail=""):
 class FakeUp:
     def __init__(self, name, buf): self.filename = name; self.file = io.BytesIO(buf)
 
-# 在干净的 2026-05 造数据（库里 5 月无课）
+# 在干净的 2026-05 造数据（先清空副本库里该月，避免生产数据漂移影响断言）
+with Session(db.engine) as s:
+    for old in s.exec(select(models.ClassSession).where(models.ClassSession.year == 2026,
+                                                       models.ClassSession.month == 5)).all():
+        s.delete(old)
+    s.commit()
 with Session(db.engine) as s:
     ct = s.exec(select(models.ClassType)).first()
     t = s.exec(select(models.Teacher)).first()

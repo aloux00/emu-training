@@ -1,10 +1,67 @@
 from sqlmodel import SQLModel, create_engine, Session, select
+from sqlalchemy import event
 import models
 import auth
+import os
 import uuid
 
-DATABASE_URL = "sqlite:///./schedule.db"
-engine = create_engine(DATABASE_URL, echo=False)
+# 数据库位置：默认当前目录 schedule.db，可用环境变量 DATABASE_URL 指定（如 sqlite:///D:/data/schedule.db）
+DATABASE_URL = (os.environ.get("DATABASE_URL") or "").strip() or "sqlite:///./schedule.db"
+_is_sqlite = DATABASE_URL.startswith("sqlite")
+# check_same_thread=False：钉钉机器人是独立线程，会与 HTTP 请求线程同时写库
+engine = create_engine(DATABASE_URL, echo=False,
+                       connect_args={"check_same_thread": False} if _is_sqlite else {})
+
+
+if _is_sqlite:
+    @event.listens_for(engine, "connect")
+    def _sqlite_pragmas(dbapi_conn, _rec):
+        """WAL + busy_timeout：机器人线程与网页请求并发写库时不至于立刻 database is locked。"""
+        cur = dbapi_conn.cursor()
+        try:
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.execute("PRAGMA busy_timeout=5000")
+            cur.execute("PRAGMA synchronous=NORMAL")
+        finally:
+            cur.close()
+
+
+def _db_file_path():
+    """从 DATABASE_URL 解析出本地 sqlite 文件路径（迁移/备份必须与引擎用同一个库）。"""
+    if not _is_sqlite:
+        return None
+    p = DATABASE_URL.split("sqlite:///", 1)[-1]
+    if p.startswith("/") and len(p) > 2 and p[2] == ":":   # sqlite:///C:/... 形式
+        p = p[1:]
+    return p
+
+
+def _backup_before_migrate(target_ver: int):
+    """迁移前把当前库整份备份（含破坏性语句的历史迁移不能裸跑）。"""
+    path = _db_file_path()
+    if not path or not os.path.exists(path):
+        return
+    import sqlite3, shutil, datetime as _dt
+    try:
+        with sqlite3.connect(path) as c:
+            ver = c.execute("PRAGMA user_version").fetchone()[0] or 0
+            if ver >= target_ver:
+                return  # 无需迁移，不产生备份文件
+            # 全新安装（刚 create_all 出来的空库）不值得备份；已有数据的旧库才备份
+            rows = 0
+            for tbl in ("classsession", "teacher", "user", "student"):
+                try:
+                    rows += c.execute("SELECT COUNT(*) FROM %s" % tbl).fetchone()[0]
+                except Exception:
+                    pass
+            if rows == 0:
+                return
+        stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+        dst = "%s.bak-migrate-%s" % (path, stamp)
+        shutil.copy2(path, dst)
+        print("[db] 迁移前已备份数据库 → %s" % os.path.basename(dst), flush=True)
+    except Exception as e:
+        print("[db] 迁移前备份失败（继续尝试迁移）：%s" % e, flush=True)
 
 
 def init_db():
@@ -18,8 +75,12 @@ def init_db():
 def _migrate():
     """为已存在的库平滑迁移：增字段 / 重建已变更结构的表，避免删库。"""
     import sqlite3
+    db_path = _db_file_path()
+    if not db_path:            # 非 sqlite（如以后换 Postgres）不做这些 sqlite 专用迁移
+        return
+    _backup_before_migrate(9)  # 目标版本 9：低于此版本才备份
     try:
-        with sqlite3.connect("schedule.db") as conn:
+        with sqlite3.connect(db_path) as conn:
             cur = conn.cursor()
             # ClassSession：补 mentor_id / week_index
             cur.execute("PRAGMA table_info(classsession)")

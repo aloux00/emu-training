@@ -1,4 +1,5 @@
 import hashlib
+import os
 import secrets
 import jwt
 import datetime
@@ -8,7 +9,35 @@ import db
 from sqlmodel import Session, select
 import models
 
-SECRET = "dev-secret-change-me"
+
+def _load_secret() -> str:
+    """JWT 签名密钥：优先读环境变量 TEACH_SECRET，否则读本地 secret.key（没有就随机生成并保存）。
+
+    绝不能把密钥写死在代码里——仓库是公开的，密钥泄漏等于任何人都能伪造管理员令牌。
+    密钥文件不入 git（见 .gitignore），换机器部署时把 secret.key 一起拷贝即可保持登录态；
+    不拷贝也能用，只是所有人需要重新登录一次。
+    """
+    env = (os.environ.get("TEACH_SECRET") or "").strip()
+    if env:
+        return env
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "secret.key")
+    try:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                val = f.read().strip()
+            if len(val) >= 32:
+                return val
+        val = secrets.token_hex(32)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(val)
+        print("[auth] 已生成新的 JWT 密钥并保存到 secret.key（请勿提交到 git；所有用户需重新登录一次）", flush=True)
+        return val
+    except Exception as e:
+        print("[auth] 无法读取/创建 secret.key（%s），本次运行使用临时密钥，重启后登录态会失效" % e, flush=True)
+        return secrets.token_hex(32)
+
+
+SECRET = _load_secret()
 ALGO = "HS256"
 oauth2 = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 

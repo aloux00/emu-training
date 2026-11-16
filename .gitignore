@@ -1,7 +1,12 @@
 # 敏感数据（含钉钉密钥、师生手机号，禁止入库）
 schedule.db
 schedule.db.bak-*
+schedule.db-wal
+schedule.db-shm
 *.db.bak
+
+# JWT 签名密钥（首次运行自动生成，泄漏等于任何人可伪造管理员令牌）
+secret.key
 
 # 运行产物
 __pycache__/
