@@ -148,6 +148,15 @@ def upd_teacher(tid: int, t: models.Teacher, _=Depends(auth.staff_only)):
         d = s.get(models.Teacher, tid)
         if not d:
             raise HTTPException(404)
+        if not (t.emp_id or "").strip():
+            raise HTTPException(400, "工号不能为空")
+        dup = s.exec(select(models.Teacher).where(
+            models.Teacher.emp_id == t.emp_id.strip(),
+            models.Teacher.id != tid)).first()
+        if dup:
+            raise HTTPException(400, "工号 %s 已被教师「%s」使用，请换一个工号（工号不能重复）"
+                                % (t.emp_id, dup.name))
+        t.emp_id = t.emp_id.strip()          # 去首尾空格后再入库
         old_emp = d.emp_id
         for k, v in t.dict(exclude={"id"}).items():
             setattr(d, k, v)
@@ -233,6 +242,15 @@ def upd_student(sid: int, t: models.Student, _=Depends(auth.staff_only)):
         d = s.get(models.Student, sid)
         if not d:
             raise HTTPException(404)
+        if not (t.stu_id or "").strip():
+            raise HTTPException(400, "学号不能为空")
+        dup = s.exec(select(models.Student).where(
+            models.Student.stu_id == t.stu_id.strip(),
+            models.Student.id != sid)).first()
+        if dup:
+            raise HTTPException(400, "学号 %s 已被学生「%s」使用，请换一个学号（学号不能重复）"
+                                % (t.stu_id, dup.name))
+        t.stu_id = t.stu_id.strip()          # 去首尾空格后再入库
         old_stu = d.stu_id
         for k, v in t.dict(exclude={"id"}).items():
             setattr(d, k, v)
@@ -1882,13 +1900,28 @@ def _dt_access_token(cfg) -> str:
     return j["access_token"]
 
 
+def _dt_mobile_error(mobile: str, j: dict) -> str:
+    """把钉钉「找不到该用户」翻译成可操作的排查提示。"""
+    code = j.get("errcode")
+    msg = str(j.get("errmsg", ""))[:80]
+    if code == 60121:
+        return ("手机号 %s 不在钉钉通讯录（或不在本应用的可见范围内）。请逐项确认："
+                "①本人已加入企业并用该手机号注册钉钉；"
+                "②钉钉开放平台 → 应用开发 → 本应用 → 权限管理，把「通讯录部门信息读权限 / 成员信息读权限」"
+                "的授权范围设为全公司（或包含其所在科室）；"
+                "③本应用「可见范围」也要包含其所在部门。改完约 10 分钟生效" % mobile)
+    if code in (60011, 88, 33012):
+        return ("手机号 %s 查询失败：应用缺少通讯录权限（errcode %s %s）。"
+                "请到钉钉开放平台给应用开通「通讯录成员信息读权限」" % (mobile, code, msg))
+    return "手机号 %s 未匹配到钉钉用户（errcode %s %s）" % (mobile, code, msg)
+
+
 def _dt_userid(token: str, mobile: str) -> str:
     """手机号 → 钉钉 userid（单聊、待办都要用）。"""
     j = _dt_oapi({"mobile": mobile},
                  "https://oapi.dingtalk.com/topapi/v2/user/getbymobile?access_token=" + token)
     if j.get("errcode") != 0:
-        raise ValueError("手机号 %s 未匹配到钉钉用户: %s"
-                         % (mobile, str(j.get("errmsg", ""))[:120]))
+        raise ValueError(_dt_mobile_error(mobile, j))
     userid = (j.get("result") or {}).get("userid")
     if not userid:
         raise ValueError("手机号 %s 未匹配到钉钉用户（接口未返回 userid）" % mobile)
@@ -1908,6 +1941,47 @@ def _dt_send_dm(cfg, token: str, userid: str, text: str) -> str:
     bad = j.get("invalidStaffIdList") or []
     if bad:
         raise ValueError("钉钉拒绝投递：invalidStaffIdList=%s" % bad)
+    return str(j.get("processQueryKey") or "")
+
+
+def _dt_upload_media(cfg, token: str, data: bytes, filename: str, ftype: str = "image") -> str:
+    """上传临时素材（老版 oapi /media/upload，配合 sampleImageMsg 使用）。
+
+    与官方 dingtalk-stream SDK 的 upload_to_dingtalk 完全同构：
+    form 字段 media（带 filename/mimetype）+ form 字段 type=image——
+    注意 type 必须放 form（SDK 做法），只放 query 时上传虽返回 media_id，
+    但客户端渲染图片会失败（表现为「图片无法打开」）。
+    返回 media_id；失败抛异常。
+    """
+    import requests
+    files = {"media": (filename, data,
+                       "image/png" if filename.lower().endswith(".png") else "image/jpeg")}
+    resp = requests.post("https://oapi.dingtalk.com/media/upload",
+                         params={"access_token": token, "type": ftype},
+                         data={"type": ftype}, files=files, timeout=30)
+    try:
+        j = resp.json()
+    except Exception:
+        raise ValueError("上传临时素材失败(HTTP %s): %s" % (resp.status_code, resp.text[:120]))
+    if j.get("errcode") != 0 or not j.get("media_id"):
+        raise ValueError("上传临时素材失败(errcode %s): %s" % (j.get("errcode"), str(j.get("errmsg", ""))[:120]))
+    return j["media_id"]
+
+
+def _dt_send_image(cfg, token: str, userid: str, media_id: str) -> str:
+    """机器人单聊发一张图片（sampleImageMsg）。失败抛异常。
+
+    官方文档：sampleImageMsg 的 msgParam 是 {"photoURL": ...}，
+    photoURL 可填图片完整 URL，也可填 /media/upload 返回的 media_id。
+    （注意不是 photoCode——字段名写错会发出「打不开」的空图。）
+    """
+    body = {"robotCode": cfg.app_key, "userIds": [userid],
+            "msgKey": "sampleImageMsg",
+            "msgParam": json.dumps({"photoURL": media_id})}
+    j = _dt_open_api(body, "https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend", token)
+    bad = j.get("invalidStaffIdList") or []
+    if bad:
+        raise ValueError("钉钉拒绝投递图片：invalidStaffIdList=%s" % bad)
     return str(j.get("processQueryKey") or "")
 
 
@@ -1982,8 +2056,7 @@ def _dt_union_id(token: str, mobile: str) -> str:
     j = _dt_oapi({"mobile": mobile},
                  "https://oapi.dingtalk.com/topapi/v2/user/getbymobile?access_token=" + token)
     if j.get("errcode") != 0:
-        raise ValueError("手机号 %s 未匹配到钉钉用户: %s"
-                         % (mobile, str(j.get("errmsg", ""))[:120]))
+        raise ValueError(_dt_mobile_error(mobile, j))
     userid = (j.get("result") or {}).get("userid")
     if not userid:
         raise ValueError("手机号 %s 未匹配到钉钉用户（接口未返回 userid）" % mobile)
@@ -2859,23 +2932,72 @@ def test_dt(_=Depends(auth.admin_only)):
             extra_note = "；其他群：" + "；".join(parts)
             ok = ok and all(t.startswith("钉钉推送成功") for _n, t in extras)
             note += extra_note
-        # 待办链路自检：企业应用凭据 + 手机号 → unionId
+        # 待办链路自检：企业应用凭据 + 手机号 → unionId（逐个试到有人匹配，避免因个别手机号不在通讯录而误报失败）
         if ok and cfg.todo_enabled and cfg.app_key and cfg.app_secret:
             try:
                 token = _dt_access_token(cfg)
-                has_phone = any(_PHONE_RE.match((t.phone or "").strip())
-                                for t in s.exec(select(models.Teacher)).all())
-                if has_phone:
-                    mobile = next((t.phone.strip() for t in s.exec(select(models.Teacher)).all()
-                                   if _PHONE_RE.match((t.phone or "").strip())))
-                    _dt_union_id(token, mobile)
-                    note += "；待办链路连通（已按手机号匹配到钉钉用户）"
+                phones = [t.phone.strip() for t in s.exec(select(models.Teacher)).all()
+                          if _PHONE_RE.match((t.phone or "").strip())]
+                if phones:
+                    got, last_err = None, ""
+                    for mobile in phones[:10]:
+                        try:
+                            _dt_union_id(token, mobile)
+                            got = mobile
+                            break
+                        except Exception as e:
+                            last_err = str(e)
+                    if got:
+                        note += "；待办链路连通（已按手机号匹配到钉钉用户）"
+                    else:
+                        note += "；待办链路未连通：" + last_err[:120]
+                        ok = False
                 else:
                     note += "；待办链路：尚未填写任何教师手机号，发布时将无法创建提醒"
             except Exception as e:
                 note += "；待办链路异常：" + str(e)[:100]
                 ok = False
         return {"ok": ok, "note": note}
+
+
+@router.get("/dingtalk/match-check")
+def dt_match_check(_=Depends(auth.admin_only)):
+    """逐个核对手机号能否在钉钉通讯录中匹配到人（发布考核/推送待办前自查）。"""
+    with Session(db.engine) as s:
+        cfg = s.exec(select(models.DingTalkConfig)).first()
+        if not cfg or not cfg.app_key or not cfg.app_secret:
+            return {"ok": False, "note": "未配置钉钉企业应用 AppKey / AppSecret，无法单聊推送"}
+        try:
+            token = _dt_access_token(cfg)
+        except Exception as e:
+            return {"ok": False, "note": "获取 access_token 失败：" + str(e)[:150]}
+        people = []
+        for t in s.exec(select(models.Teacher)).all():
+            if getattr(t, "enabled", True):
+                people.append(("老师", t.name, (t.phone or "").strip()))
+        for st in s.exec(select(models.Student)).all():
+            people.append(("学生", st.name, (st.phone or "").strip()))
+        people = [p for p in people if p[2]]
+
+        matched, unmatched, no_phone = [], [], 0
+        for kind, name, mobile in people:
+            if not _PHONE_RE.match(mobile):
+                no_phone += 1
+                unmatched.append({"kind": kind, "name": name, "phone": mobile,
+                                  "reason": "手机号格式不正确"})
+                continue
+            j = _dt_oapi({"mobile": mobile},
+                         "https://oapi.dingtalk.com/topapi/v2/user/getbymobile?access_token=" + token)
+            if j.get("errcode") == 0 and (j.get("result") or {}).get("userid"):
+                matched.append({"kind": kind, "name": name})
+            else:
+                unmatched.append({"kind": kind, "name": name, "phone": mobile,
+                                  "reason": str(j.get("errmsg") or "") + "（errcode %s）" % j.get("errcode")})
+        note = "共 %d 人有手机号：可匹配 %d 人，不可匹配 %d 人" % (len(people), len(matched), len(unmatched))
+        if unmatched:
+            note += "。不可匹配的人收不到钉钉单聊：请确认其已加入企业并用该手机号注册，且应用通讯录权限范围覆盖其部门"
+        return {"ok": not unmatched, "note": note, "checked": len(people),
+                "matched": matched, "unmatched": unmatched}
 
 
 # ---------- 单聊待填清单推送（P0：老师回复即填报） ----------

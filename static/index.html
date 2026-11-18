@@ -349,6 +349,16 @@ const ADMIN_ROUTES = ['classtypes', 'holidays', 'rules', 'dingtalk', 'menus', 'u
 const STAFF_ROUTES = ['teachers', 'students', 'schedule-generate', 'exam'];
 
 const http = axios.create({ baseURL: '/api' });
+// 统一错误文案：FastAPI 422 的 detail 是数组，直接弹会显示 [object Object]
+function errMsg(e) {
+  const d = e.response && e.response.data && e.response.data.detail;
+  if (d) {
+    if (Array.isArray(d)) return d.map(x => ((x.loc && x.loc[x.loc.length - 1]) || '') + ' ' + (x.msg || '')).join('；');
+    return String(d);
+  }
+  if (e.response && e.response.status >= 500) return '服务器错误（' + e.response.status + '），请联系管理员查看后台日志';
+  return e.message || '操作失败';
+}
 http.interceptors.request.use(cfg => {
   const t = localStorage.getItem('token');
   if (t) cfg.headers.Authorization = 'Bearer ' + t;
@@ -509,8 +519,9 @@ const Teachers = {
     function save() {
       if (form.phone && !/^1\d{10}$/.test(form.phone)) { alert('手机号应为 11 位数字（钉钉绑定号）'); return; }
       const data = JSON.parse(JSON.stringify(form));
+      data.emp_id = (data.emp_id || '').trim();
       const req = editing.value ? http.put('/teachers/'+form.id, data) : http.post('/teachers', data);
-      req.then(() => { show.value=false; load(); }).catch(e=>alert((e.response&&e.response.data.detail)||'保存失败'));
+      req.then(() => { show.value=false; load(); }).catch(e=>alert(errMsg(e)));
     }
     function del(t) { if(!confirm('确认删除 '+t.name+'?')) return; http.delete('/teachers/'+t.id).then(load); }
     function toggleOne(t) {
@@ -620,7 +631,7 @@ const Students = {
     }
     function openAdd(){editing.value=false;Object.assign(form,{id:null,stu_id:'',name:'',grade:'一年级',phone:''});show.value=true;}
     function openEdit(t){editing.value=true;Object.assign(form,JSON.parse(JSON.stringify(t)));show.value=true;}
-    function save(){const data=JSON.parse(JSON.stringify(form));const req=editing.value?http.put('/students/'+form.id,data):http.post('/students',data);req.then(()=>{show.value=false;load();}).catch(e=>alert((e.response&&e.response.data.detail)||'失败'));}
+    function save(){const data=JSON.parse(JSON.stringify(form));data.stu_id=(data.stu_id||'').trim();const req=editing.value?http.put('/students/'+form.id,data):http.post('/students',data);req.then(()=>{show.value=false;load();}).catch(e=>alert(errMsg(e)));}
     function del(t){if(!confirm('删除 '+t.name+'?'))return;http.delete('/students/'+t.id).then(load);}
     const fileEl=ref(null); const msg=ref(''); const msgOk=ref(true);
     function dl(url, filename) {
@@ -735,7 +746,7 @@ const Graduates = {
       const data=JSON.parse(JSON.stringify(form));
       const req=editing.value?http.put('/graduates/'+form.id,data):http.post('/graduates',data);
       req.then(()=>{show.value=false;msgOk.value=true;msg.value='已保存';load();})
-         .catch(e=>alert((e.response&&e.response.data&&e.response.data.detail)||'保存失败'));
+         .catch(e=>alert(errMsg(e)));
     }
     function del(t){if(!confirm('删除 '+t.name+'?'))return;http.delete('/graduates/'+t.id).then(load);}
     // ---- 从教师/学生名单勾选导入 ----
@@ -801,7 +812,7 @@ const ClassTypes = {
     function load(){http.get('/classtypes').then(r=>list.value=r.data);}
     function openAdd(){editing.value=false;Object.assign(form,{id:null,name:'',color:'#185FA5',freq_desc:''});show.value=true;}
     function openEdit(c){editing.value=true;Object.assign(form,JSON.parse(JSON.stringify(c)));show.value=true;}
-    function save(){const data=JSON.parse(JSON.stringify(form));const req=editing.value?http.put('/classtypes/'+form.id,data):http.post('/classtypes',data);req.then(()=>{show.value=false;load();}).catch(e=>alert((e.response&&e.response.data.detail)||'失败'));}
+    function save(){const data=JSON.parse(JSON.stringify(form));const req=editing.value?http.put('/classtypes/'+form.id,data):http.post('/classtypes',data);req.then(()=>{show.value=false;load();}).catch(e=>alert(errMsg(e)));}
     function del(c){if(!confirm('删除 '+c.name+'?'))return;http.delete('/classtypes/'+c.id).then(load);}
     onMounted(load); return {list,show,editing,form,openAdd,openEdit,save,del,isAdmin:useIsAdmin()}; }
 };
@@ -825,7 +836,7 @@ const Holidays = {
   setup(){ const list=ref([]); const show=ref(false); const form=reactive({date:'',name:'',makeup:''});
     function load(){http.get('/holidays').then(r=>list.value=r.data);}
     function openAdd(){Object.assign(form,{date:'',name:'',makeup:''});show.value=true;}
-    function save(){if(!form.date){alert('请选择日期');return;}const data=JSON.parse(JSON.stringify(form));http.post('/holidays',data).then(()=>{show.value=false;load();}).catch(e=>alert((e.response&&e.response.data.detail)||'失败'));}
+    function save(){if(!form.date){alert('请选择日期');return;}const data=JSON.parse(JSON.stringify(form));http.post('/holidays',data).then(()=>{show.value=false;load();}).catch(e=>alert(errMsg(e)));}
     function del(h){if(!confirm('删除 '+h.name+'?'))return;http.delete('/holidays/'+h.id).then(load);}
     onMounted(load); return {list,show,form,openAdd,save,del,isAdmin:useIsAdmin()}; }
 };
@@ -2051,7 +2062,14 @@ const DingTalk = {
       <span class="muted">|</span>
       <input class="input" style="width:110px" v-model="dmMonth" placeholder="2026-12（空=全部）"/>
       <button class="btn btn-ghost" @click="pushDm" :disabled="dmPushing">{{dmPushing?'推送中…':'推送单聊待填清单'}}</button>
+      <button class="btn btn-ghost" @click="checkMatch" :disabled="matching">{{matching?'核对方手机号…':'手机号匹配自查'}}</button>
       <span class="muted">{{note}}</span>
+    </div>
+    <div v-if="matchRes" class="banner" :class="matchRes.ok?'banner-info':'banner-err'" style="margin-top:10px">
+      <div style="font-weight:600">{{ matchRes.note }}</div>
+      <div v-if="matchRes.unmatched && matchRes.unmatched.length" style="margin-top:6px;max-height:220px;overflow:auto;font-size:12px;line-height:1.7">
+        <div v-for="(u,i) in matchRes.unmatched" :key="i">{{ u.kind }} {{ u.name }}（{{ u.phone || '无手机号' }}）：{{ u.reason }}</div>
+      </div>
     </div>
     <div class="muted" style="margin-top:8px;line-height:1.6;font-size:12px">
       <b>单聊待填清单</b>：机器人逐个私聊每位老师，内容是他自己那几节待填课程；老师<b>直接回复「12-03 课程名」</b>即可填报，不用 @、不用打开网页、不需要任何对外地址。<br>
@@ -2091,6 +2109,13 @@ const DingTalk = {
       }).finally(()=>{dmPushing.value=false;});
     }
     function load(){http.get('/dingtalk/config').then(r=>Object.assign(cfg,r.data||{}));loadExtras();}
+    const matching=ref(false); const matchRes=ref(null);
+    function checkMatch(){
+      matchRes.value=null; matching.value=true;
+      http.get('/dingtalk/match-check').then(r=>{ matchRes.value=r.data||null; })
+        .catch(e=>{ matchRes.value={ok:false,note:'自查失败：'+((e.response&&e.response.data&&e.response.data.detail)||e.message)}; })
+        .finally(()=>{matching.value=false;});
+    }
     function save(){
       http.put('/dingtalk/config',JSON.parse(JSON.stringify(cfg))).then(saveExtras)
         .then(()=>note.value='已保存')
@@ -2108,7 +2133,8 @@ const DingTalk = {
         msg.value={type:'err',text:'测试失败：'+((e.response&&e.response.data&&e.response.data.detail)||e.message)};
       }).finally(()=>{testing.value=false;});
     }
-    onMounted(load); return {cfg,note,testing,msg,save,test,showSecret,dmMonth,dmPushing,pushDm,extras,addExtra,delExtra}; }
+    onMounted(load); return {cfg,note,testing,msg,save,test,showSecret,dmMonth,dmPushing,pushDm,extras,addExtra,delExtra,
+                             matching,matchRes,checkMatch}; }
 };
 
 const Menus = {
@@ -2133,7 +2159,7 @@ const Menus = {
     function load(){http.get('/menus').then(r=>list.value=r.data);}
     function openAdd(){editing.value=false;Object.assign(form,{id:null,name:'',path:'',parent_id:0,sort:list.value.length+1,visible:true});show.value=true;}
     function openEdit(m){editing.value=true;Object.assign(form,JSON.parse(JSON.stringify(m)));show.value=true;}
-    function save(){const data=JSON.parse(JSON.stringify(form));data.parent_id=Number(data.parent_id)||0;data.sort=Number(data.sort)||0;const req=editing.value?http.put('/menus/'+form.id,data):http.post('/menus',data);req.then(()=>{show.value=false;load();}).catch(e=>alert((e.response&&e.response.data.detail)||'失败'));}
+    function save(){const data=JSON.parse(JSON.stringify(form));data.parent_id=Number(data.parent_id)||0;data.sort=Number(data.sort)||0;const req=editing.value?http.put('/menus/'+form.id,data):http.post('/menus',data);req.then(()=>{show.value=false;load();}).catch(e=>alert(errMsg(e)));}
     function del(m){if(!confirm('删除菜单 '+m.name+'?'))return;http.delete('/menus/'+m.id).then(load);}
     onMounted(load); return {list,show,editing,form,openAdd,openEdit,save,del,isAdmin:useIsAdmin()}; }
 };
@@ -2620,6 +2646,9 @@ const Exam = {
             <button class="btn" style="width:100%" @click="saveDraft" :disabled="busy">保存草稿</button>
             <button class="btn" style="width:100%;margin-top:8px;background:#0f6e56" @click="publish" :disabled="busy||!result">
               发布并钉钉通知老师/考生</button>
+            <button class="btn btn-ghost" style="width:100%;margin-top:8px" @click="pushImage" :disabled="busy||!result"
+              v-if="cur.plan.status==='published'" title="不重发文字，只把考核轮转表图片发给监考老师和考生">
+              {{ pushingImage ? '推送中…' : '重推轮转表图片（不发文字）' }}</button>
             <div v-if="pubReport" class="pub-box">
               <div><b>{{pubReport.note}}</b></div>
               <div v-if="pubReport.teachers&&pubReport.teachers.sent&&pubReport.teachers.sent.length" class="muted">
@@ -2668,6 +2697,7 @@ const Exam = {
     const tload = ref([]), tPickSeq = ref(0);   // 考官名单（含历史监考/推荐权重）
     const result = ref(null), busy = ref(false), dirty = ref(false), step = ref(1);
     const editing = ref(null), pubReport = ref(null);
+    const pushingImage = ref(false);
     const editForm = reactive({ station_seq: 0, room: 0, start_min: 0 });
     const form = reactive({ name: '', exam_date: new Date().toISOString().slice(0,10), start_time: '12:30', tick_min: 10 });
 
@@ -3469,6 +3499,18 @@ const Exam = {
         .catch(e => alert('保存失败：' + errText(e)))
         .finally(() => busy.value = false);
     }
+    function pushImage() {
+      busy.value = true;
+      pushingImage.value = true;
+      http.post('/exam/plans/' + pid() + '/push-image', {})
+        .then(r => {
+          pubReport.value = { note: r.data && r.data.note, image_only: true,
+                              teachers: { sent: r.data.sent || [] }, students: { sent: [] },
+                              failed: r.data.failed || [], skipped: r.data.skipped || [] };
+        })
+        .catch(e => alert('图片推送失败：' + errText(e)))
+        .finally(() => { busy.value = false; pushingImage.value = false; });
+    }
     function publish() {
       if (!result.value) return;
       if (!confirm('发布后会给监考老师和考生推送钉钉消息，确定发布？')) return;
@@ -3552,12 +3594,13 @@ const Exam = {
       cellRowName, cellStationElastic, cellStationRooms, cellOptions, dragStart, dropOn, onBoardKey,
       clip, copySel, cutSel, pasteSel, conflictCount, conflictList,
       editing, editForm, editStation, editDur, startOptions, openEdit, onPickStation, applyEdit, deleteSeg,
-      pubReport, failures: computed(() => {
+      pubReport, pushingImage, pushImage, failures: computed(() => {
         const r = pubReport.value; if (!r) return [];
         const out = [];
         ['teachers', 'students'].forEach(k => {
           ((r[k] || {}).failed || []).forEach(x => out.push((k === 'teachers' ? '老师 ' : '考生 ') + x.name + ' 推送失败：' + x.error));
         });
+        (r.failed || []).forEach(x => out.push(x.name + ' 图片推送失败：' + x.error));
         return out;
       }),
       skips: computed(() => {
@@ -3566,6 +3609,7 @@ const Exam = {
         ['teachers', 'students'].forEach(k => {
           ((r[k] || {}).skipped || []).forEach(x => out.push((k === 'teachers' ? '老师 ' : '考生 ') + x.name));
         });
+        (r.skipped || []).forEach(x => out.push(x.name));
         return out;
       }) };
   }

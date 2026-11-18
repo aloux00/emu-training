@@ -1308,6 +1308,233 @@ def _exam_student_msg(p, slots, st_map):
     return "\n".join(lines)
 
 
+# 考站配色（与网页轮转表观感一致：浅色块 + 深色字）
+_STATION_COLORS = [
+    ("#cfe2f3", "#1a4a7a"),  # 蓝
+    ("#fde9d9", "#8a4b08"),  # 橙
+    ("#e2efda", "#3c6325"),  # 绿
+    ("#f6e0ec", "#8a3563"),  # 粉
+    ("#fff2cc", "#7f6000"),  # 黄
+    ("#d9ead3", "#274e13"),
+    ("#d0e0e3", "#134f5c"),
+    ("#ead1dc", "#741b47"),
+]
+
+
+def _render_rotation_png(p, slots, st_map, cands, tick):
+    """把考生轮转表渲染成 PNG 字节流，用于钉钉图片推送。
+
+    布局：左列考生姓名 + 顶部时间刻度 + 每人一行彩色时段块（与网页轮转表一致），
+    底部图例标注各站名称与颜色。未安装 Pillow 返回 None（不影响文字推送）。
+    """
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError:
+        return None
+    if not slots:
+        return None
+
+    def _g(obj, key):
+        return obj[key] if isinstance(obj, dict) else getattr(obj, key)
+
+    if isinstance(slots[0], dict):                     # 兼容排程草稿的字典形态
+        class _NS:
+            def __init__(self, d):
+                self.__dict__.update(d)
+        slots = [_NS(x) for x in slots]
+    tick = tick or 10
+    ticks = max(1, (max(x.end_min for x in slots) + tick - 1) // tick)
+
+    def _font(size):
+        for f in (r"C:\Windows\Fonts\msyh.ttc", r"C:\Windows\Fonts\simhei.ttf"):
+            try:
+                return ImageFont.truetype(f, size)
+            except Exception:
+                pass
+        return ImageFont.load_default()
+
+    f_name, f_head, f_st, f_title = _font(16), _font(12), _font(13), _font(17)
+    f_seq = _font(12)
+    name_w, cell_w, row_h, head_h, margin, title_h = 96, 34, 30, 24, 12, 30
+    px = cell_w / float(tick)                        # 每分钟像素
+    n = len({x.candidate_id for x in slots})
+    legend_h = 24 * ((len(st_map) + 3) // 4)
+    W = margin + name_w + int(ticks * cell_w) + margin
+    H = title_h + margin + head_h + n * row_h + 10 + legend_h + margin
+
+    img = Image.new("RGB", (W, H), "#ffffff")
+    d = ImageDraw.Draw(img)
+
+    # 标题：场次名 + 日期 + 开考时间（转发出去也能看出是哪一场）
+    title = p.name or "技能考核"
+    sub = "%s %s 开考" % (p.exam_date or "", p.start_time or "")
+    tsize = 17
+    while tsize > 11 and (d.textlength(title, font=f_title) +
+                          d.textlength(sub, font=f_head) + 24 > W - 2 * margin):
+        tsize -= 1                                   # 场次名过长时自动缩小，避免挤出边界
+        f_title = _font(tsize)
+    d.text((margin + 2, margin - 4), title, font=f_title, fill="#222222")
+    tw_title = d.textlength(title, font=f_title)
+    d.text((margin + 2 + tw_title + 10, margin + 5), sub, font=f_head, fill="#888888")
+    d.line([(margin, title_h + margin - 10), (W - margin, title_h + margin - 10)],
+           fill="#cccccc", width=1)
+    top = title_h + margin
+
+    def _x(minutes):
+        return margin + name_w + minutes * px
+
+    # 顶部时间刻度（每 30 分钟一个标签，网格每 tick 一条）
+    base = p.start_time or "12:30"
+    d.text((margin + 4, top + 2), "考生", font=f_name, fill="#333333")
+    for i in range(0, ticks + 1):
+        xx = _x(i * tick)
+        major = (i * tick) % 30 == 0
+        d.line([(xx, top), (xx, H - margin - legend_h)],
+               fill="#dddddd" if major else "#f2f2f2", width=1)
+        if major and i < ticks:
+            d.text((xx + 2, top + 2), _hhmm(base, i * tick), font=f_head, fill="#666666")
+    d.line([(margin, top + head_h - 4), (W - margin, top + head_h - 4)],
+           fill="#bbbbbb", width=1)
+
+    # 考生行（按姓名排序，与导出 Excel 一致）：一人一行，行内画所有时段块
+    order = sorted({c.id: c for c in
+                    (cands.get(x.candidate_id) for x in slots) if c}.values(),
+                   key=lambda c: c.name)
+    y = top + head_h
+    for c in order:
+        d.text((margin + 4, y + row_h // 2 - 9), c.name, font=f_name, fill="#222222")
+        d.line([(margin, y + row_h), (W - margin, y + row_h)], fill="#f0f0f0", width=1)
+        y += row_h
+
+    # 彩色时段块
+    y2 = top + head_h
+    for c in order:
+        for x in slots:
+            if x.candidate_id != c.id:
+                continue
+            st = st_map.get(x.station_seq)
+            fill, txt = _STATION_COLORS[(x.station_seq - 1) % len(_STATION_COLORS)]
+            x0, x1 = _x(x.start_min) + 1, _x(x.end_min) - 1
+            y0, y1 = y2 + 3, y2 + row_h - 3
+            d.rectangle([x0, y0, x1, y1], fill=fill, outline=fill)
+            label = st.name if st else "第%d站" % x.station_seq
+            # 够宽画站名；否则退化为站号数字（配合底部图例分辨）
+            tw = d.textlength(label, font=f_st)
+            if x1 - x0 >= tw + 8:
+                d.text(((x0 + x1 - tw) / 2, (y0 + y1) / 2 - 9), label, font=f_st, fill=txt)
+            elif x1 - x0 >= 14:
+                seq_s = str(x.station_seq)
+                sw = d.textlength(seq_s, font=f_seq)
+                d.text(((x0 + x1 - sw) / 2, (y0 + y1) / 2 - 8), seq_s, font=f_seq, fill=txt)
+        y2 += row_h
+
+    # 底部图例：站名 + 颜色小方块
+    ly = H - margin - legend_h
+    per = 4
+    items = sorted(st_map.values(), key=lambda s: s.seq)
+    for i, st in enumerate(items):
+        fill, txt = _STATION_COLORS[(st.seq - 1) % len(_STATION_COLORS)]
+        col_i, row_i = i % per, i // per
+        bx = margin + col_i * ((W - 2 * margin) // per)
+        by = ly + row_i * 24
+        d.rectangle([bx, by + 4, bx + 14, by + 18], fill=fill, outline="#cccccc")
+        d.text((bx + 20, by + 3), "%d %s" % (st.seq, st.name), font=f_st, fill="#333333")
+
+    import io
+    bio = io.BytesIO()
+    img.save(bio, format="PNG")
+    return bio.getvalue()
+
+
+def _coverage_from_slots(slots, stations, tick):
+    """按当前排程算出每站「应该有人监考」的时段（合并规则与 _assign_duty 一致）。"""
+    tick = tick or 10
+    out = {}
+    for st in stations:
+        spans = sorted((x.start_min, x.end_min) for x in slots if x.station_seq == st.seq)
+        blocks = []
+        for a, b in spans:
+            if blocks and a - blocks[-1][1] <= 2 * tick:
+                blocks[-1][1] = max(blocks[-1][1], b)
+            else:
+                blocks.append([a, b])
+        out[st.seq] = blocks
+    return out
+
+
+def _duty_coverage(duties):
+    """现有监考安排覆盖的时段（同站相邻/重叠段先合并再比较）。"""
+    out = {}
+    for d in duties:
+        out.setdefault(d.station_seq, []).append([d.start_min, d.end_min])
+    for k, v in out.items():
+        v.sort()
+        merged = []
+        for a, b in v:
+            if merged and a <= merged[-1][1]:
+                merged[-1][1] = max(merged[-1][1], b)
+            else:
+                merged.append([a, b])
+        out[k] = merged
+    return out
+
+
+def rebuild_duties_from_slots(s, p, slots, stations, teachers):
+    """按当前排程重排监考时段，尽量沿用原有监考老师（保留人工指派意图）。
+
+    典型场景：教务在页面上调整了考生轮转并保存，但没有点「重算监考表」，
+    此时库里的监考时段还是旧的 → 推送出去的时间和考核表对不上。
+    """
+    old = s.exec(select(models.ExamDuty).where(models.ExamDuty.plan_id == p.id)).all()
+    prefer = {}
+    for d in old:
+        ids = [int(x) for x in (d.teacher_ids or "").split(",") if x.strip().isdigit()]
+        if not ids and d.teacher_id:
+            ids = [d.teacher_id]
+        lst = prefer.setdefault(d.station_seq, [])
+        for i in ids:
+            if i not in lst:
+                lst.append(i)
+    tmap = {t.id: t for t in teachers}
+    for d in old:
+        s.delete(d)
+    s.flush()
+
+    busy = {}
+    def free(tid, a, b):
+        return all(not (a < y and x < b) for x, y in busy.get(tid, []))
+
+    out = []
+    for st in stations:
+        blocks = _coverage_from_slots([x for x in slots if x.station_seq == st.seq],
+                                      [st], p.tick_min).get(st.seq) or []
+        need = max(1, st.teachers or 1)
+        cands = [i for i in prefer.get(st.seq, []) if i in tmap] or \
+                [i for i in _st_tids(st) if i in tmap] or list(tmap)
+        for a, b in blocks:
+            got = []
+            for tid in cands:                      # 优先不与其他站冲突
+                if len(got) >= need:
+                    break
+                if free(tid, a, b):
+                    got.append(tid); busy.setdefault(tid, []).append((a, b))
+            for tid in cands:                      # 人手不够时放宽
+                if len(got) >= need:
+                    break
+                if tid not in got:
+                    got.append(tid); busy.setdefault(tid, []).append((a, b))
+            if not got:
+                continue
+            row = models.ExamDuty(plan_id=p.id, station_seq=st.seq, room=-1,
+                                  start_min=a, end_min=b,
+                                  teacher_id=got[0], teacher_name=tmap[got[0]].name,
+                                  teachers=",".join(tmap[i].name for i in got),
+                                  teacher_ids=",".join(str(i) for i in got))
+            s.add(row)
+            out.append(row)
+    return out
+
+
 @router.post("/plans/{pid}/publish")
 def publish(pid: int, payload: dict = None, s: Session = Depends(_session),
             _=Depends(auth.staff_only)):
@@ -1325,13 +1552,24 @@ def publish(pid: int, payload: dict = None, s: Session = Depends(_session),
 
     report = {"ok": True, "teachers": {"sent": [], "failed": [], "skipped": []},
               "students": {"sent": [], "failed": [], "skipped": []}, "note": ""}
-    if payload.get("notify") is False:
-        report["note"] = "已发布（按要求未推送）"
-        return report
 
     st_map = {st.seq: st for st in s.exec(select(models.ExamStation).where(
         models.ExamStation.plan_id == pid)).all()}
     duties = s.exec(select(models.ExamDuty).where(models.ExamDuty.plan_id == pid)).all()
+    # 监考时段必须与当前轮转一致：不一致就按排程重算（否则推给老师的时间会和考核表对不上）
+    # 放在「是否推送」判断之前：即使只发布不推送，监考表也应是正确的
+    expect = {k: v for k, v in _coverage_from_slots(slots, list(st_map.values()), p.tick_min).items() if v}
+    current = {k: v for k, v in _duty_coverage(duties).items() if v}
+    if expect != current:
+        all_teachers = s.exec(select(models.Teacher)).all()
+        duties = rebuild_duties_from_slots(s, p, slots, list(st_map.values()), all_teachers)
+        s.commit()
+        report["note"] = "监考时段已按最新轮转重算（原时段与考站占用不一致）；"
+
+    if payload.get("notify") is False:
+        report["note"] += "已发布（按要求未推送）"
+        return report
+
     cands = {c.id: c for c in s.exec(select(models.ExamCandidate).where(
         models.ExamCandidate.plan_id == pid)).all()}
 
@@ -1355,6 +1593,7 @@ def publish(pid: int, payload: dict = None, s: Session = Depends(_session),
 
     # ---- 监考老师 ----
     by_teacher = {}
+    sent_uids = []
     for d in duties:
         ids = [int(x) for x in (d.teacher_ids or "").split(",") if x.strip().isdigit()]
         if not ids and d.teacher_id:
@@ -1375,6 +1614,7 @@ def publish(pid: int, payload: dict = None, s: Session = Depends(_session),
             uid = _dt_userid(token, mobile)
             _dt_send_dm(cfg, token, uid, _exam_teacher_msg(p, ds, st_map))
             report["teachers"]["sent"].append(name)
+            sent_uids.append(uid)
         except Exception as e:
             report["teachers"]["failed"].append({"name": name, "error": str(e)[:100]})
 
@@ -1395,12 +1635,106 @@ def publish(pid: int, payload: dict = None, s: Session = Depends(_session),
             uid = _dt_userid(token, mobile)
             _dt_send_dm(cfg, token, uid, _exam_student_msg(p, xs, st_map))
             report["students"]["sent"].append(c.name)
+            sent_uids.append(uid)
         except Exception as e:
             report["students"]["failed"].append({"name": c.name, "error": str(e)[:100]})
 
-    report["note"] = "老师 %d 人、考生 %d 人已推送；失败 %d、缺手机号 %d" % (
+    # ---- 考核轮转表图片：临时素材上传 → 图片消息 ----
+    img_note = ""
+    try:
+        from api import _dt_upload_media, _dt_send_image
+        png = _render_rotation_png(p, slots, st_map, cands, p.tick_min)
+        if png and sent_uids:
+            media_id = _dt_upload_media(cfg, token, png, "rotation.png", "image")
+            ok_img = 0
+            for uid in sent_uids:
+                try:
+                    _dt_send_image(cfg, token, uid, media_id)
+                    ok_img += 1
+                except Exception:
+                    pass
+            report["image_sent"] = ok_img
+            img_note = "；考核轮转表图片已推送 %d/%d 人" % (ok_img, len(sent_uids))
+        elif not png:
+            img_note = "；服务器未安装 Pillow，图片未推送"
+    except Exception as e:
+        img_note = "；轮转表图片推送失败：" + str(e)[:90]
+    report["note"] += img_note
+
+    report["note"] = report.get("note", "") + "老师 %d 人、考生 %d 人已推送；失败 %d、缺手机号 %d" % (
         len(report["teachers"]["sent"]), len(report["students"]["sent"]),
         len(report["teachers"]["failed"]) + len(report["students"]["failed"]),
         len(report["teachers"]["skipped"]) + len(report["students"]["skipped"]))
     report["ok"] = not (report["teachers"]["failed"] or report["students"]["failed"])
     return report
+
+
+@router.post("/plans/{pid}/push-image")
+def push_image(pid: int, s: Session = Depends(_session),
+               _=Depends(auth.staff_only)):
+    """仅重推考核轮转表图片（不重发文字，用于图片修复后单独验证/补发）。"""
+    p = s.get(models.ExamPlan, pid)
+    if not p:
+        raise HTTPException(404, "考核计划不存在")
+    slots = s.exec(select(models.ExamSlot).where(models.ExamSlot.plan_id == pid)).all()
+    if not slots:
+        raise HTTPException(400, "还没有排程结果")
+    st_map = {st.seq: st for st in s.exec(select(models.ExamStation).where(
+        models.ExamStation.plan_id == pid)).all()}
+    cands = {c.id: c for c in s.exec(select(models.ExamCandidate).where(
+        models.ExamCandidate.plan_id == pid)).all()}
+    try:
+        from api import _dt_access_token, _dt_userid, _dt_send_image, _dt_upload_media
+    except Exception as e:                                  # pragma: no cover
+        raise HTTPException(500, "推送模块不可用：" + str(e)[:120])
+    cfg = s.exec(select(models.DingTalkConfig)).first()
+    if not cfg or not cfg.app_key or not cfg.app_secret:
+        raise HTTPException(400, "未配置钉钉企业应用 AppKey/AppSecret")
+    try:
+        token = _dt_access_token(cfg)
+    except Exception as e:
+        raise HTTPException(500, "获取 access_token 失败：" + str(e)[:120])
+
+    png = _render_rotation_png(p, slots, st_map, cands, p.tick_min)
+    if not png:
+        raise HTTPException(500, "服务器未安装 Pillow，无法生成图片")
+    media_id = _dt_upload_media(cfg, token, png, "rotation.png", "image")
+
+    sent, failed, skipped = [], [], []
+    teachers = {t.id: t for t in s.exec(select(models.Teacher)).all()}
+    seen_uid = set()
+    # 监考老师
+    for d in s.exec(select(models.ExamDuty).where(models.ExamDuty.plan_id == pid)).all():
+        ids = [int(x) for x in (d.teacher_ids or "").split(",") if x.strip().isdigit()]
+        if not ids and d.teacher_id:
+            ids = [d.teacher_id]
+        for tid in ids:
+            t = teachers.get(tid)
+            if not t or tid in seen_uid:
+                continue
+            seen_uid.add(tid)
+            mobile = (t.phone or "").strip()
+            if not mobile:
+                skipped.append({"name": t.name, "reason": "未登记手机号"})
+                continue
+            try:
+                uid = _dt_userid(token, mobile)
+                _dt_send_image(cfg, token, uid, media_id)
+                sent.append(t.name)
+            except Exception as e:
+                failed.append({"name": t.name, "error": str(e)[:100]})
+    # 考生
+    for c in cands.values():
+        stu = s.get(models.Student, c.student_id)
+        mobile = ((stu.phone if stu else "") or "").strip()
+        if not mobile:
+            skipped.append({"name": c.name, "reason": "未登记手机号"})
+            continue
+        try:
+            uid = _dt_userid(token, mobile)
+            _dt_send_image(cfg, token, uid, media_id)
+            sent.append(c.name)
+        except Exception as e:
+            failed.append({"name": c.name, "error": str(e)[:100]})
+    return {"ok": not failed, "sent": sent, "failed": failed, "skipped": skipped,
+            "note": "轮转表图片已推送 %d 人；失败 %d、缺手机号 %d" % (len(sent), len(failed), len(skipped))}
